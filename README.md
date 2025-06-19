@@ -4,7 +4,7 @@ No settings UI yet, but some values can be adjusted via constants in the .lua fi
 
 Displays the following:
 
-1) Time left until body resurrection
+1) Time left until resurrection by-corpse
 2) If RezTimer is enabled: spirit healer rez timer at BG + estimated number of enemies about to rez
 3) Day of the week, date, and exact time with milliseconds
 4) Your current zone
