@@ -5,11 +5,11 @@ No settings UI yet, but some values can be adjusted via constants in the .lua fi
 Displays the following:
 
 1) Time left until resurrection by-corpse
-2) If RezTimer is enabled: spirit healer rez timer at BG + estimated number of enemies about to rez
+2) If RezTimer is enabled: spirit healer resurrection timer at BG + estimated number of enemies about to resurrection
 3) Day of the week, date, and exact time with milliseconds
 4) Your current zone
 5) Dungeon difficulty
-6) Remaining PvP flag time (shown if under 5 minutes)
+6) PvP flag + PvP flag time remaining (shown if under 5 minutes)
 7) FPS
 8) Particle density from graphics settings (shown as a status bar)
 9) Latency (same as shown in the game menu tooltip, updates ~every 30 sec)
