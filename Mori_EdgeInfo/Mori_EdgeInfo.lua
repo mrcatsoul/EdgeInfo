@@ -425,7 +425,7 @@ do
       --spdOrAp = GetSpellBonusDamage(6) -- 6=shadow
     
       -- Start at 2 to skip physical damage
-      local spdOrAp = GetSpellBonusDamage(2)
+      spdOrAp = GetSpellBonusDamage(2)
       local bonusDamage
       for i = 3, MAX_SPELL_SCHOOLS do
         bonusDamage = GetSpellBonusDamage(i)
