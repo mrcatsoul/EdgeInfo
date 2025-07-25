@@ -5,7 +5,7 @@ No settings UI yet, but some values can be adjusted via constants in the .lua fi
 Displays the following:
 
 1) Time left until resurrection by-corpse
-2) If RezTimer is enabled: spirit healer resurrection timer at BG + estimated number of enemies about to resurrection
+2) If RezTimer(https://github.com/mrcatsoul/RezTimer) is enabled: spirit healer resurrection timer at BG + estimated number of enemies about to resurrection
 3) Day of the week, date, and exact time with milliseconds
 4) Your current zone
 5) Dungeon difficulty
@@ -31,7 +31,7 @@ WoW 3.3.5 аддон. На данный момент без опций-наст�
 Показывает:
 
 1) время до реса по телу
-2) если включен RezTimer: время до реса у духа на бг + потенциальное кол-во ресающихся врагов
+2) если включен RezTimer(https://github.com/mrcatsoul/RezTimer): время до реса у духа на бг + потенциальное кол-во ресающихся врагов
 3) день недели, дату, точное время с милисекундами
 4) зону местонахождения
 5) сложность подземелья
