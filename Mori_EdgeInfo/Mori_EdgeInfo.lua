@@ -778,9 +778,11 @@ do
   local select = _G.select
   local unpack = _G.unpack
   local UnitIsDND = UnitIsDND
+  local IsInGuild = IsInGuild
+  local GetNumRaidMembers = GetNumRaidMembers
+  local GetNumPartyMembers = GetNumPartyMembers
   
   ns.responceTime = 0
-  local dndEnabled
 
   local f=CreateFrame("frame")
   f:SetScript("OnEvent", function(self, event, ...) return self[event](self, ...) end)
