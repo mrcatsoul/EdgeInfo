@@ -2,7 +2,7 @@ WoW 3.3.5 addon.
 
 Currently has no options or settings UI, but some values can be tweaked through constants in the Lua file(Mori_EdgeInfo.lua).
 
-Displays the following:
+Displays the quick info at bottom left corner:
 
 1) Time left until resurrection by-corpse
 2) If RezTimer(https://github.com/mrcatsoul/RezTimer) is enabled: spirit healer resurrection timer at BG + estimated number of enemies about to resurrection
@@ -38,7 +38,7 @@ Displays the following:
 
 WoW 3.3.5 аддон. На данный момент без графических опций-настроек, но некоторые значения можно покрутить через константы в основном lua-файле аддона(Mori_EdgeInfo.lua).
 
-Показывает:
+Показывает быструю инфу в левом нижнем углу:
 
 1) время до реса по телу
 2) если включен RezTimer(https://github.com/mrcatsoul/RezTimer): время до реса у духа на бг + потенциальное кол-во ресающихся врагов
