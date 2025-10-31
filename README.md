@@ -10,7 +10,7 @@ Displays the quick info at bottom left corner:
 4) Current map zone name
 5) Dungeon difficulty
 6) PvP flag + PvP flag time remaining (shown if under 5 minutes)
-7) FPS
+7) Frames per second
 8) Particle density from graphics settings (shown as a status bar)
 9) Latency (same as shown in the game menu tooltip, updates ~every 30 sec)
 10) RTT (Round-trip time) — a more accurate ping using addon messages (https://wowwiki-archive.fandom.com/wiki/API_SendAddonMessage), updates rapidly; good for spotting real connection issues)
