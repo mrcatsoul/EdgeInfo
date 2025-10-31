@@ -20,7 +20,7 @@ Displays the following:
 14) Movement speed
 15) Quick update of information about memory consumption by wow addons + their extended list in the tooltip on the game menu button
 
-![image](https://github.com/user-attachments/assets/228da761-fca2-4978-8aaf-8b98f383608b)
+<img width="409" height="130" alt="image" src="https://github.com/user-attachments/assets/d6e879b5-5e11-480d-9349-12993e936b33" />
 
 ![image](https://github.com/user-attachments/assets/566b9901-b0ba-45fa-ab93-59d31c470bd2)
 
