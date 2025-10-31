@@ -7,12 +7,12 @@ do
   
   --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\PTSansNarrow.ttf"
   local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebucbd.ttf"
-  local FONT_SIZE = 12
+  local FONT_SIZE = 10
   local ALPHA = 0.9
 
   local PARTICLE_DENSITY_BAR_MIN_WIDTH = 50
   local PARTICLE_DENSITY_BAR_MIN_HEIGHT = 7
-  local UPDATE_INTERVAL_GLOBAL = 0.1
+  local UPDATE_INTERVAL_GLOBAL = 0.025
   local UPDATE_INTERVAL_SERVER_INFO = 5
   local FORCE_EN_LOCALE = true
   
@@ -22,20 +22,22 @@ do
   local GAMES = L=="ruRU" and "Игр" or "GAMES"
   local WINS = L=="ruRU" and "Побед" or "WINS"
   local WINRATE = L=="ruRU" and "Винрейт" or "WR"
-  local ATTACK_POWER = L=="ruRU" and "АП" or "AP"
-  local SPELL_POWER = L=="ruRU" and "СПД" or "SPD"
-  local RES = L=="ruRU" and "Рес" or "RES"
+  local ATTACK_POWER = L=="ruRU" and "Ап" or "AP"
+  local SPELL_POWER = L=="ruRU" and "Спд" or "SPD"
+  local RES = L=="ruRU" and "Уст" or "RSL"
   local CRIT = L=="ruRU" and "Крит" or "CRT"
-  local HASTE = L=="ruRU" and "Хаст" or "HST"
-  local HIT = L=="ruRU" and "Хит" or "HIT"
-  local MOVE_SPEED = L=="ruRU" and "Скор. движ" or "MOV"
-  local TO_RES = L=="ruRU" and "До реса" or "To res"
-  local BY_CORPSE = L=="ruRU" and "по телу" or "by corpse"
-  local TO_RES_BY_CORPSE = L=="ruRU" and "Рес по телу" or "Res by corpse"
-  local ENEMIES = L=="ruRU" and "врагов реснется" or "dead enemies"
+  local HASTE = L=="ruRU" and "Скор" or "HST"
+  local HIT = L=="ruRU" and "Метк" or "HIT"
+  local MOVE_SPEED = L=="ruRU" and "Ск. движ" or "MOV"
+  local TO_RES = L=="ruRU" and "До реса" or "RES"
+  local BY_CORPSE = L=="ruRU" and "по телу" or "CORPSE"
+  local TO_RES_BY_CORPSE = L=="ruRU" and "Рес по телу" or "RES CORPSE"
+  local ENEMIES = L=="ruRU" and "врагов реснется" or "DEAD ENMS"
   local READY = L=="ruRU" and "готов" or "ready"
-  local RATING = L=="ruRU" and "Рейтинг" or "RTG"
+  local RATING = L=="ruRU" and "Бг очки" or "PTS"
   local SYSMSG_SPAM_ERROR = L=="ruRU" and "Команда не может быть обработана в текущий момент" or "This command cann't be processed now"
+  local MAP = L=="ruRU" and "Карта" or "MAP"
+  local TIME = L=="ruRU" and "Время" or "TIME"
   
   local ACHIV_CATEGORY_ID_BATTLEGROUNDS_PLAYED = 839 --GetStatisticId("Battlegrounds", "Battlegrounds played")
   local ACHIV_CATEGORY_ID_BATTLEGROUNDS_WON = 840 --GetStatisticId("Battlegrounds", "Battlegrounds won")
@@ -57,6 +59,7 @@ do
   local UnitRangedAttackPower = UnitRangedAttackPower
   local GetRangedCritChance = GetRangedCritChance
   local GetCritChance = GetCritChance
+  local UnitArmor = UnitArmor
   local UnitGUID = UnitGUID
   local UnitClass = UnitClass
   local UnitHealthMax = UnitHealthMax
@@ -68,15 +71,21 @@ do
   local GetNumTalentTabs = GetNumTalentTabs
   local GetUnitSpeed = GetUnitSpeed
   local GetStatistic = GetStatistic
+  local UnitCastingInfo = UnitCastingInfo
+  local UnitChannelInfo = UnitChannelInfo
+  local GetNumWhoResults = GetNumWhoResults
+  local SendWho = SendWho
   local _G = _G
   local format = _G.format
   local select = _G.select
   local tonumber = _G.tonumber
+  local tostring = _G.tostring
   local unpack = _G.unpack
+  local pairs, ipairs = _G.pairs, _G.ipairs
   local floor = _G.floor
   local max = _G.max
   local min = _G.min
-  local modf = math.modf
+  local modf = _G.math.modf
   local GetFramerate = GetFramerate
   local GetNetStats = GetNetStats
   local GetZonePVPInfo = GetZonePVPInfo
@@ -92,12 +101,123 @@ do
   local playerGUID = UnitGUID("player")
   
   local InDungeon, InRaidDungeon, InBg, InArena, InRaidGroup, spectatorMode, instanceDifficulty, zonePvpType, showAttackPower, showSpellPower, curZone, zoneColor, InCrossZone, isHunter
-  local serverDelay = 0
-
+  local UNIT_SPELLCAST_SENT, UNIT_SPELLCAST_SUCCEEDED = {}, {}
+  local serverDelay, serverUptime, activeConnections, NumWhoResults = 0, "-", 0, 0
   local statsInfoString, bgInfoString, zoneInfoString = "", "", ""
   local RezTimer_Data, bg_statistics = _G.RezTimer_Data, _G.bg_statistics
-  local zone_interval = 0
-  --print("bg_statistics",bg_statistics)
+  local x_GameTime = _G.x_GameTime
+  
+  local DelayedCall
+  do
+    local f = CreateFrame("frame")
+    local calls = {} 
+    local function OnUpdate(self, elapsed)
+      for i, call in ipairs(calls) do
+        call.time = call.time + elapsed
+        if call.time >= call.delay then
+          call.func()
+          tremove(calls, i) 
+        end
+      end
+    end
+    f:SetScript("OnUpdate", OnUpdate)
+    DelayedCall = function(delay, func)
+      tinsert(calls, { delay = delay, time = 0, func = func })
+    end
+  end
+  
+  do
+    local GetGameTime, GetTime = GetGameTime, GetTime
+
+    x_GameTime = {
+      -----------------------------------------------------------
+      -- function <PREFIX>_GameTime:Get()
+      --
+      -- Return game time as (h,m,s) where s has 3 decimals of
+      -- precision (though it's only likely to be precise down
+      -- to ~20th of seconds since we're dependent on frame
+      -- refreshrate).
+      --
+      -- During the first minute of play, the seconds will
+      -- consistenly be "00", since we haven't observed any
+      -- minute changes yet.
+      --
+      --
+
+      Get = function(self)
+        if(self.LastMinuteTimer == nil) then
+          local h,m = GetGameTime();
+          return h,m,0;
+        end
+        local s = GetTime() - self.LastMinuteTimer;
+        if(s>59.999) then
+          s=59.999;
+        end
+        return self.LastGameHour, self.LastGameMinute, s;
+      end,
+
+      -----------------------------------------------------------
+      -- function <PREFIX>_GameTime:OnUpdate()
+      --
+      -- Called by: Private frame <OnUpdate> handler
+      --
+      -- Construct high precision server time by polling for
+      -- server minute changes and remembering GetTime() when it
+      -- last did
+      --
+
+      OnUpdate = function(self)
+        local h,m = GetGameTime();
+        if(self.LastGameMinute == nil) then
+          self.LastGameHour = h;
+          self.LastGameMinute = m;
+          return;
+        end
+        if(self.LastGameMinute == m) then
+          return;
+        end
+        self.LastGameHour = h;
+        self.LastGameMinute = m;
+        self.LastMinuteTimer = GetTime();
+      end,
+
+      -----------------------------------------------------------
+      -- function <PREFIX>_GameTime:Initialize()
+      --
+      -- Create frame to pulse OnUpdate() for us
+      --
+
+      Initialize = function(self)
+        self.Frame = CreateFrame("Frame");
+        self.Frame:SetScript("OnUpdate", function() self:OnUpdate(); end);
+      end
+    }
+
+    x_GameTime:Initialize();
+  end
+  
+  FriendsFrame:UnregisterEvent("WHO_LIST_UPDATE") 
+  -- WhoFrameWhoButton:HookScript("onclick", function(self, button)
+    -- WhoList_Update()
+  -- end)
+  
+  SetWhoToUI(1)
+  
+  WhoFrame:HookScript("OnShow", function(self)
+    FriendsFrame:RegisterEvent("WHO_LIST_UPDATE")
+    print("RegisterEvent(\"WHO_LIST_UPDATE\")")
+  end)
+  
+  WhoFrame:HookScript("OnHide", function(self)
+    FriendsFrame:UnregisterEvent("WHO_LIST_UPDATE")
+    print("UnregisterEvent(\"WHO_LIST_UPDATE\")")
+  end)
+  
+  local function tLength(T)
+    local count = 0
+    for _ in pairs(T) do count = count + 1 end
+    return count
+  end
   
   local function rgbToHex(r, g, b)
     return format("%02x%02x%02x", floor(255 * r), floor(255 * g), floor(255 * b))
@@ -188,30 +308,28 @@ do
       return format("%dm %ds", minutes, remainingSeconds)
     end
   end
+  --_G.FormatTime_MinSec = formatTime
   
   -- милисекунды
   local TimeFormatter = {}
 
-  function TimeFormatter:Init()
-    self.timeOffset = time() - floor(GetTime())
-  end
-
   function TimeFormatter:GetFormattedTime()
     if not self.timeOffset then
-      self:Init()
+      self.timeOffset = time() - floor(GetTime())
     end
 
-    self.now = GetTime()
-    self.seconds = floor(self.now)
-    self.milliseconds = floor((self.now - self.seconds) * 1000)
-    self.fullTime = self.timeOffset + self.seconds
+    local now = GetTime()
+    local seconds = floor(now)
+    local milliseconds = floor((now - seconds) * 1000)
+    local fullTime = self.timeOffset + seconds
     
-    return date("%A  %d.%m.%Y  %H:%M:%S", self.fullTime) .. format(".%03d", self.milliseconds)
+    return date("%A  %d.%m.%Y  %H:%M:%S", fullTime) .. format(".%03d", milliseconds)
   end
   _G.GetFormattedTime = TimeFormatter.GetFormattedTime 
    
   -- Создаем статус-бар
   local f = CreateFrame("StatusBar", ADDON_NAME.."_ParticleDensityBar_Frame", UIParent)
+  f:SetClampedToScreen(true)
   f:SetSize(PARTICLE_DENSITY_BAR_MIN_WIDTH, PARTICLE_DENSITY_BAR_MIN_HEIGHT)
   f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 172, 36)
   f:SetFrameStrata("high")
@@ -269,7 +387,7 @@ do
 
   f:SetScript("OnValueChanged", UpdateStatusBarColor)
 
-  f:RegisterForDrag("LeftButton")
+  --f:RegisterForDrag("LeftButton")
   
   f:SetScript("OnMouseDown", function(self, button)
     if IsModifierKeyDown() then
@@ -342,6 +460,8 @@ do
 
     InRaidGroup = GetRealNumRaidMembers() > 0 or UnitInRaid("player")
     InCrossZone = InBg or InArena or (UnitIsPVPSanctuary("player") and (curZone=="Кратер Азшары" or curZone=="Ульдуар" or curZone=="Azshara Crater" or curZone=="Ulduar"))
+    --_G.InCrossZone = InCrossZone
+    --print("InCrossZone",_G.InCrossZone)
     
     if (InRaidDungeon and not InRaidGroup) or (InArena and UnitHealthMax("player") < 3000) then
       spectatorMode = true
@@ -351,6 +471,9 @@ do
     showSpellPower = IsSpellPowerClass() or IsHealerClass()
     showAttackPower = IsMeleeClass()
     isHunter = select(2, UnitClass("player")) == "HUNTER"
+    
+    wipe(UNIT_SPELLCAST_SENT)
+    wipe(UNIT_SPELLCAST_SUCCEEDED)
   end
 
   local function GetRezTimerInfo()
@@ -360,39 +483,44 @@ do
       local secondsToRes = RezTimer_Data and RezTimer_Data.cd
       
       if secondsToRes then
-        text = text .. TO_RES..":  |cffff8822"..secondsToRes.."|r"
+        text = text .. TO_RES .. ": |cffff8822" .. secondsToRes .. "|r"
         if UnitIsDeadOrGhost("player") then
           CorpseRecoveryDelay = GetCorpseRecoveryDelay()
           if CorpseRecoveryDelay > 0 then
-            text = text .. "   "..BY_CORPSE..":  |cffff8822"..formatTime(CorpseRecoveryDelay).."|r"
+            text = text .. "   " .. BY_CORPSE .. ": |cffff8822" .. formatTime(CorpseRecoveryDelay) .. "|r"
           else
-            text = text .. "   "..BY_CORPSE..":  |cff33ff33"..READY.."|r"
+            text = text .. "   " .. BY_CORPSE .. ": |cff33ff33" .. READY .. "|r"
           end
         end
       else
         if UnitIsDeadOrGhost("player") then
           CorpseRecoveryDelay = GetCorpseRecoveryDelay()
           if CorpseRecoveryDelay > 0 then
-            text = text .. TO_RES_BY_CORPSE..":  |cffff8822"..formatTime(CorpseRecoveryDelay).."|r"
+            text = text .. TO_RES_BY_CORPSE .. ": |cffff8822" .. formatTime(CorpseRecoveryDelay) .. "|r"
           else
-            text = text .. TO_RES_BY_CORPSE..":  |cff33ff33"..READY.."|r"
+            text = text .. TO_RES_BY_CORPSE .. ": |cff33ff33" .. READY .. "|r"
           end
         end
       end
       
       if RezTimer_Data and RezTimer_Data.counter then
-        text = text .. "   "..ENEMIES..":  |cffff6622"..RezTimer_Data.counter.."|r"
+        text = text .. "   "..ENEMIES..": |cffff6622" .. RezTimer_Data.counter .. "|r"
       end
     elseif UnitIsDeadOrGhost("player") then
       CorpseRecoveryDelay = GetCorpseRecoveryDelay()
       if CorpseRecoveryDelay > 0 then
-        text = text .. TO_RES_BY_CORPSE..":  |cffff8822"..formatTime(CorpseRecoveryDelay).."|r"
+        text = text .. TO_RES_BY_CORPSE .. ": |cffff8822" .. formatTime(CorpseRecoveryDelay) .. "|r"
       else
-        text = text .. TO_RES_BY_CORPSE..":  |cff33ff33"..READY.."|r"
+        text = text .. TO_RES_BY_CORPSE .. ": |cff33ff33" .. READY .. "|r"
       end
     end
     
     return text
+  end
+  
+  local function truncate(num, digits)
+    local mult = 10 ^ (digits or 1)
+    return floor(num * mult) / mult
   end
   
   local function formatTrimmed(num)
@@ -409,36 +537,47 @@ do
   end
   
   local function GetBgInfoText()
-    --local text = ""
-    
     local bgstats = bg_statistics and bg_statistics[playerGUID]
     
-    local winsStr, gamesStr, winRateStr 
+    local winsTest, bgPts, gamesTest, winrateTest, wrColorTest, gamesTtl, winsTtl, winRateTtl, wrColorTtl
     
     if bgstats then
-      --local rating = bgstats.rating
-      local wins = bgstats.wins
-      local games = bgstats.games
-      local winrate = games > 0 and formatTrimmed(wins / games *100) or 0
-      local wrColor = games > 0 and RGBGradient(1 - (wins / games *100) / 100) or "999999"
+      bgPts = bgstats.rating or 0
+      winsTest = bgstats.wins or 0
+      gamesTest = bgstats.games or 0
       
-      winsStr, gamesStr, winRateStr = wins, games, "|ccc"..wrColor..""..winrate.."|r"
-      
-      --text = RATING..":  |cccffff88"..rating.."|r    "..GAMES..":  |cccffff88"..games.."|r    "..WINS..":  |cccffff88"..wins.."|r    "..WINRATE..":  |ccc"..wrColor..""..winrate.."|r"
+      if gamesTest > 0 then
+        winrateTest = gamesTest > 0 and truncate(winsTest / gamesTest *100) or 0
+        wrColorTest = gamesTest > 0 and RGBGradient(1 - (winsTest / gamesTest *100) / 100) or "999999"
+        winrateTest = "|ccc" .. wrColorTest .. winrateTest .. "|r"
+      end
+    else
+      gamesTtl = tonumber(GetStatistic(ACHIV_CATEGORY_ID_BATTLEGROUNDS_PLAYED)) or 0
+      winsTtl = tonumber(GetStatistic(ACHIV_CATEGORY_ID_BATTLEGROUNDS_WON)) or 0
+      winRateTtl = gamesTtl > 0 and truncate(winsTtl / gamesTtl *100) or 0
+      wrColorTtl = gamesTtl > 0 and RGBGradient(1 - (winsTtl / gamesTtl *100) / 100) or "999999"
+    end
+
+    local winsStr = bgstats and 
+      "" .. WINS .. ": |cccf1f1a1" .. winsTest .. "|r" or 
+      winsTtl and "" .. WINS .. ": |cccf1f1a1" .. winsTtl .. "|r"
+    
+    local gamesStr = bgstats and 
+      "" .. GAMES .. ": |cccf1f1a1" .. gamesTest .. "|r" or
+      gamesTtl and "" .. GAMES .. ": |cccf1f1a1" .. gamesTtl .. "|r"
+    
+    local winRateStr = winrateTest and 
+      "" .. WINRATE .. ": |ccc" .. wrColorTest .. winrateTest .. "|r" or
+      winRateTtl and "" .. WINRATE .. ": |ccc" .. wrColorTtl .. winRateTtl .."|r"
+    
+    local text = gamesStr .. "   " .. winsStr
+    text = winRateStr and text .. "    " .. winRateStr or text
+    
+    if bgPts then
+      text = text .. "   "..RATING..": " .. bgPts
     end
     
-    games = tonumber(GetStatistic(ACHIV_CATEGORY_ID_BATTLEGROUNDS_PLAYED)) or 0
-    wins = tonumber(GetStatistic(ACHIV_CATEGORY_ID_BATTLEGROUNDS_WON)) or 0
-    winrate = games > 0 and formatTrimmed(wins / games *100) or 0
-    wrColor = games > 0 and RGBGradient(1 - (wins / games *100) / 100) or "999999"
-    
-    winsStr = winsStr and ""..WINS..":  |cccffff88"..winsStr.. " ("..wins..")|r" or ""..WINS..":  |cccffff88"..wins.."|r"
-    gamesStr = gamesStr and ""..GAMES..":  |cccffff88"..gamesStr.. " ("..games..")|r" or ""..GAMES..":  |cccffff88"..games.."|r"
-    winRateStr = winRateStr and ""..WINRATE..":  "..winRateStr .. " |ccc"..wrColor.."("..winrate..")|r" or ""..WINRATE..":  "..winrate..""
-    
-    --text = gamesStr.."    "..winsStr.."    "..winRateStr
-    
-    return gamesStr.."    "..winsStr.."    "..winRateStr
+    return text
   end
   
   local function GetStatsText()
@@ -464,7 +603,6 @@ do
       end
       
       haste = GetCombatRating(CR_HASTE_SPELL) --* 0.03049802371
-      --crit = GetSpellCritChance(6)
       hit = GetCombatRating(CR_HIT_SPELL) --/ 32.7868852459
     elseif showAttackPower then
       local base, posBuff, negBuff = UnitAttackPower("player")
@@ -482,7 +620,7 @@ do
 
     if showAttackPower or isHunter then
       --hexcolor = RGBGradient(spdOrAp / 9000)
-      hexcolor = RGBGradient(1 - spdOrAp / 6000)
+      hexcolor = RGBGradient(1 - spdOrAp / 12000)
       --hexcolorHaste = RGBGradient(157 / 1000)
       hexcolorHaste = haste == 0 and "999999" or "ffffff"
       hexHitColor = RGBGradient(1 - hit / 10)
@@ -503,17 +641,39 @@ do
     elseif showSpellPower then 
       text = text .. SPELL_POWER  
     end
+    
+    local base, effectiveArmor, armor, posBuff, negBuff = UnitArmor("player")
+    local armorColor
+    if posBuff ~= 0 then 
+      armorColor = "00f100"
+    elseif negBuff ~= 0 then
+      armorColor = "f10000"
+    else
+      armorColor = "f1f1a1"
+    end
 
-    text = text .. ":  |cff" ..hexcolor .."" ..spdOrAp .."|r    "..RES..":  |cff"..resColor..""..res.."|r    "..CRIT..":  |cff" ..hexcolorCrit .."" .. format("%.0f", crit) .. "|r    "..HASTE..":  |cff" .. hexcolorHaste .. "" ..formatTrimmed(haste) .. "|r    "..HIT..":  |cff" .. hexHitColor .. ""..formatTrimmed(hit).."|r"
+    if InDungeon then 
+      if showAttackPower then
+        text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..CRIT..": |cff" ..hexcolorCrit .."" .. truncate(crit) .. "|r    "..HASTE..": |cff" .. hexcolorHaste .. "" ..truncate(haste) .. "|r    "..HIT..": |cff" .. hexHitColor .. ""..truncate(hit).."|r    ARM: |cff" .. armorColor .. ""..armor.."|r"
+      elseif showSpellPower then
+        text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..CRIT..": |cff" ..hexcolorCrit .."" .. truncate(crit) .. "|r    "..HASTE..": |cff" .. hexcolorHaste .. "" ..truncate(haste) .. "|r    "..HIT..": |cff" .. hexHitColor .. ""..truncate(hit).."|r"
+      else
+        text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..CRIT..": |cff" ..hexcolorCrit .."" .. format("%.0f", crit) .. "|r    "..HASTE..": |cff" .. hexcolorHaste .. "" ..truncate(haste) .. "|r    "..HIT..": |cff" .. hexHitColor .. ""..truncate(hit).."|r    ARM: |cff" .. armorColor .. ""..armor.."|r"
+      end
+    else
+      if showAttackPower then 
+        text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..RES..": |cff"..resColor..""..res.."|r    PAR: |cfff1f1a1" .. truncate(GetParryChance(),1) .. "|r   ARM: |cff" .. armorColor .. ""..armor.."|r"
+      elseif showSpellPower then
+        text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..RES..": |cff"..resColor..""..res.."|r    "..CRIT..": |cff" ..hexcolorCrit .."" .. truncate(crit) .. "|r    "..HASTE..": |cff" .. hexcolorHaste .. "" ..truncate(haste) .. "|r    "..HIT..": |cff" .. hexHitColor .. ""..truncate(hit).."|r"
+      else
+        text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..RES..": |cff"..resColor..""..res.."|r    "..CRIT..": |cff" ..hexcolorCrit .."" .. format("%.0f", crit) .. "|r    "..HASTE..": |cff" .. hexcolorHaste .. "" ..truncate(haste) .. "|r    "..HIT..": |cff" .. hexHitColor .. ""..truncate(hit).."|r    ARM: |cff" .. armorColor .. ""..armor.."|r"
+      end
+    end
     
     return text
   end
 
   local function GetZoneInfo()
-    zone_interval = zone_interval + 0.01
-    if zone_interval < 0.1 then return zoneInfoString end
-    zone_interval, zoneInfoString = 0, ""
-
     local _instanceDifficulty = instanceDifficulty and (" |ccc" .. zoneColor .. "("..instanceDifficulty..")|r") or ""
     local _spectatorMode = spectatorMode and ("  [spectator]") or ""
     
@@ -521,15 +681,39 @@ do
     local pvpOn = UnitIsPVP("player")
     local pvpInfo = pvpOn and ("|cffff0000PvP|r") or ""
     
+    local x, y = GetPlayerMapPosition("player")
+    x, y = floor(x * 1000 + 0.5) / 10, floor(y * 1000 + 0.5) / 10
+    
     if pvpOn and PVPTimer > 0 then
       if PVPTimer < 300 then
         pvpInfo = pvpInfo .. " "..formatTime(PVPTimer)..""
       end
     end
     
-    zoneInfoString = "|ccc" .. zoneColor .. curZone .. "|r".._instanceDifficulty.."".._spectatorMode.."   "..pvpInfo..""
+    zoneInfoString = ""..MAP..": |ccc" .. zoneColor .. curZone .. "|r".._instanceDifficulty.."".._spectatorMode.."  "..x..", "..y.."  "..pvpInfo..""
     
     return zoneInfoString
+  end
+  
+  local SpellUseDelay, SpellUseDelaySpell = "-"
+  
+  local function GetSpellUseDelay()
+    if tLength(UNIT_SPELLCAST_SENT) > 0 then
+      for spell, time in pairs(UNIT_SPELLCAST_SENT) do
+        if UNIT_SPELLCAST_SUCCEEDED[spell] then
+          SpellUseDelay = UNIT_SPELLCAST_SUCCEEDED[spell] - time
+          UNIT_SPELLCAST_SENT[spell] = nil
+          UNIT_SPELLCAST_SUCCEEDED[spell] = nil
+          SpellUseDelaySpell = spell
+          --print("UNIT_SPELLCAST_SUCCEEDED",spell," = nil")
+        else
+          SpellUseDelay = GetTime() - time
+        end
+        SpellUseDelay = modf(SpellUseDelay*1000)
+        break
+      end
+    end
+    return SpellUseDelay, SpellUseDelaySpell
   end
 
   f:RegisterEvent("MODIFIER_STATE_CHANGED")
@@ -541,6 +725,7 @@ do
   f:RegisterEvent("CHAT_MSG_SYSTEM")
   f:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
   f:RegisterEvent("ADDON_LOADED")
+  f:RegisterEvent("WHO_LIST_UPDATE")
   
   f:RegisterEvent("UNIT_ATTACK_POWER")
   f:RegisterEvent("UNIT_RANGED_ATTACK_POWER")
@@ -548,8 +733,17 @@ do
   f:RegisterEvent("UNIT_RANGEDDAMAGE")
   f:RegisterEvent("UNIT_DAMAGE")
   
+  f:RegisterEvent("UNIT_SPELLCAST_SENT")
+  f:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+  f:RegisterEvent("UNIT_SPELLCAST_START")
+  f:RegisterEvent("UNIT_SPELLCAST_FAILED")
+  
   f:RegisterEvent("PLAYER_DAMAGE_DONE_MODS")
   --f:RegisterEvent("SKILL_LINES_CHANGED")
+  
+  f:RegisterEvent("UNIT_ATTACK") -- 10.10.25
+  f:RegisterEvent("UNIT_ATTACK_SPEED") -- 10.10.25
+  --"UNIT_DAMAGE" or event == "PLAYER_DAMAGE_DONE_MODS" or event == "UNIT_ATTACK_SPEED" or event == "UNIT_RANGEDDAMAGE" or event == "UNIT_ATTACK" or event == "UNIT_STATS" or event == "UNIT_RANGED_ATTACK_POWER"
   
   f:SetScript("OnEvent", function(self, event, ...)
     if ( event == "UNIT_ATTACK_POWER"
@@ -557,6 +751,8 @@ do
       or event == "UNIT_STATS"
       or event == "UNIT_RANGEDDAMAGE"
       or event == "UNIT_DAMAGE"
+      or event == "UNIT_ATTACK"
+      or event == "UNIT_ATTACK_SPEED"
       ) and ... == "player"
       then
         statsInfoString = GetStatsText()
@@ -567,15 +763,24 @@ do
         RezTimer_Data = _G.RezTimer_Data
       elseif ... == "CustomFrames" then
         bg_statistics = _G.bg_statistics
+        --x_GameTime = _G.x_GameTime
       end
     elseif event == "UPDATE_BATTLEFIELD_STATUS" then
       bgInfoString = GetBgInfoText()
     elseif event == "MODIFIER_STATE_CHANGED" then
-      local state = select(2, ...)
+      local key, state = ...
       if state == 1 then
         self:EnableMouse(true)
         self:EnableMouseWheel(true)
+        if key:find("SHIFT") then
+          SetWhoToUI(0)
+          --FriendsFrame:RegisterEvent("WHO_LIST_UPDATE")
+        end
       else
+        if key:find("SHIFT") then
+          SetWhoToUI(1)
+          --FriendsFrame:UnregisterEvent("WHO_LIST_UPDATE")
+        end
         self:StopMovingOrSizing()
         self:EnableMouse(false)
         self:EnableMouseWheel(false)
@@ -583,17 +788,72 @@ do
     elseif event == "PLAYER_LOGIN" then
       playerGUID = UnitGUID("player")
       f:SetFrameLevel(10)
-    elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "PLAYER_TALENT_UPDATE" then
+    elseif event == "PLAYER_ENTERING_WORLD" then
       updateZoneAndRaidInfo()
+      SetWhoToUI(1)
+      f.SYSMSG_SPAM_ERROR = nil
       bgInfoString = GetBgInfoText()
       statsInfoString = GetStatsText()
+      activeConnections = "-"
+      serverDelay = "-"
+      serverUptime = "-"
+      NumWhoResults = "-"
+      ns.responceTime = "-"
+      SpellUseDelay = "-"
+    elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "PLAYER_TALENT_UPDATE" then
+      updateZoneAndRaidInfo()
     elseif event == "CHAT_MSG_SYSTEM" then
       local msg = ...
-      if msg:find("Server delay: ") or msg:find(SYSMSG_SPAM_ERROR) then
+      if msg:find(SYSMSG_SPAM_ERROR) then
         self.needWaitServerInfo = nil
+        if f.needShowServerInfo and f.needShowServerInfo == 0 then
+          f.SYSMSG_SPAM_ERROR = true
+          print("["..GetAddOnMetadata(ADDON_NAME, "Title").."]: |cffff7733Сообщение об ошибке от сервера при ручной отправке server info. Ждём 1 сек и траим отправить server info ещё раз из аддона.|r")
+          DelayedCall(1, function()
+            print("["..GetAddOnMetadata(ADDON_NAME, "Title").."]: |cff00ffaaОтправляем...|r")
+            SendChatMessage(".server info", "guild")
+          end)
+        end
+      elseif msg:find("Server delay: ") then
         serverDelay = tonumber(string.match(msg, "Server delay: (%d+) ms")) or -1
         --print('serverDelay:',serverDelay)
+      elseif msg:find("Server uptime: ") then
+        self.needWaitServerInfo = nil
+        local s = msg:lower()
+
+        local h = s:match("(%d+)%s*hours?") or s:match("(%d+)%s*hour")
+        local m = s:match("(%d+)%s*minutes?") or s:match("(%d+)%s*minute")
+        local sec = s:match("(%d+)%s*seconds?") or s:match("(%d+)%s*second")
+
+        h = tonumber(h) or 0
+        m = tonumber(m) or 0
+        sec = tonumber(sec) or 0
+
+        if h > 0 then
+          serverUptime = string.format("%dh %02dm %02ds", h, m, sec)
+        elseif m > 0 then
+          serverUptime = string.format("%dm %02ds", m, sec)
+        else
+          serverUptime = string.format("0:%02ds", sec)
+        end
+      elseif msg:find("Active connections: ") then
+        activeConnections = msg:match("Active connections:%s+(%d+)")
+        --print(activeConnections) 
       end
+    elseif event == "UNIT_SPELLCAST_SENT" and not (UnitCastingInfo("player") or UnitChannelInfo("player")) then
+      local unit, spell = ...
+      if unit == "player" and not UNIT_SPELLCAST_SENT[spell] then
+        --print(event, unit, spell)
+        UNIT_SPELLCAST_SENT[spell] = GetTime()
+      end
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" or event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_FAILED" then
+      local unit, spell = ...
+      if unit == "player" and UNIT_SPELLCAST_SENT[spell] and not UNIT_SPELLCAST_SUCCEEDED[spell] then
+        --print(event, unit, spell)
+        UNIT_SPELLCAST_SUCCEEDED[spell] = GetTime()
+      end
+    elseif event == "WHO_LIST_UPDATE" then
+      NumWhoResults = select(2, GetNumWhoResults())
     end
   end)
   
@@ -605,33 +865,46 @@ do
   text:SetShadowOffset(1, -1)
   text:SetTextColor(1, 1, 1, 1)
   text:SetJustifyH("LEFT")
-  text:SetJustifyV("BOTTOM")
+  --text:SetJustifyV("BOTTOM")
   
   f.text = text
 
   f:SetScript("onupdate", function(self, elapsed)
-    self.t = self.t and self.t + elapsed or 0
+    self.t = self.t and self.t + elapsed or UPDATE_INTERVAL_GLOBAL
     if self.t < UPDATE_INTERVAL_GLOBAL then return end
     self.t = 0
     
-    self.servInfoTime = self.servInfoTime and self.servInfoTime + UPDATE_INTERVAL_GLOBAL or 0
+    self.servInfoTime = self.servInfoTime and self.servInfoTime + UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_SERVER_INFO
     if not self.needWaitServerInfo and self.servInfoTime > UPDATE_INTERVAL_SERVER_INFO then
       self.needWaitServerInfo = true
       self.servInfoTime = 0
       --print("server info")
       SendChatMessage(".server info","guild")
+      if not (WhoFrameEditBox:IsVisible() and WhoFrameEditBox:GetText() ~= "") and not IsShiftKeyDown() then
+        SendWho("")
+      end
     end
     
-    local topText = ""
+    local text = ""
 
-    topText = topText .. "\n" .. GetZoneInfo()
+    text = text .. "\n" .. GetZoneInfo()
 
     local RezTimerInfo = GetRezTimerInfo()
     if RezTimerInfo ~= "" then
-      topText = topText .. "\n" .. RezTimerInfo
+      text = text .. "\n" .. RezTimerInfo
     end
     
-    topText = topText .. "\n" ..TimeFormatter:GetFormattedTime()
+    text = text .. "\n"..TIME..": |cccf1f1a1" ..TimeFormatter:GetFormattedTime() .. "|r"
+    if x_GameTime then
+      local h, m, s = x_GameTime:Get()
+      m = format("%02d", m)
+      if s ~= 0 then 
+        s = format("%.3f", s) 
+        text = text .. "    REALM: |cccf1f1a1"..h..":"..m..":"..s.."|r"
+      else
+        text = text .. "    REALM: |cccf1f1a1"..h..":"..m.."|r"
+      end
+    end
     
     local particleDensity = tonumber(GetCVar("particleDensity"))*100
     local particle_percent = particleDensity / 100
@@ -652,39 +925,44 @@ do
     local latency = select(3, GetNetStats())
     local latencyColor = RGBGradient(latency / 150)
     
-    local responce = ns.responceTime or -1
-    local responceColor = RGBGradient(responce / 150)
+    local responce = ns.responceTime
+    local responceColor = tonumber(responce) and RGBGradient(responce / 150) or "f1f1a1"
     
-    local serverDelayColor = RGBGradient(serverDelay / 150)
+    local spellDelay, spell = GetSpellUseDelay()
+    local spellIcon = spell and select(3, GetSpellInfo(spell))
+    local spellDelayColor = tonumber(spellDelay) and RGBGradient(spellDelay / 150) or "f1f1a1"
+    spellDelay = spellIcon and spellDelay .. " |T" .. spellIcon .. ":"..(FONT_SIZE+1).."|t" or spellDelay
+    
+    local serverDelayColor = tonumber(serverDelay) and RGBGradient(serverDelay / 150) or "f1f1a1"
     
     local fps = format("%d", GetFramerate())
     local fpsColor = RGBGradient(1 - tonumber(fps) / 60)
     
-    topText = topText .. "\nFPS:  |ccc" .. fpsColor .. "" .. fps .. "|r    "..PARTICLES..":  |ccc" .. particleColor .. ""..format("%.0f", particleDensity).."|r"
+    text = text .. "\nFPS: |ccc" .. fpsColor .. "" .. fps .. "|r    "..PARTICLES..": |ccc" .. particleColor .. ""..format("%.0f", particleDensity).."|r    PL(SRV): |cccf1f1a1"..activeConnections.."|r    PL(WHO): |cccf1f1a1"..NumWhoResults.."|r"
     
-    topText = topText .. "\nLAT:  |ccc" .. latencyColor .. "" .. latency .. "|r    RTT:  |ccc"..responceColor..""..responce.."|r    "..SERV_DELAY..":  |ccc"..serverDelayColor..""..serverDelay.."|r"
+    text = text .. "\nLAT: |ccc" .. latencyColor .. "" .. latency .. "|r    MSG(RTT): |ccc"..responceColor..""..responce.."|r    SPELL: |ccc"..spellDelayColor..""..spellDelay.."|r    "..SERV_DELAY..": |ccc"..serverDelayColor..""..serverDelay.."|r    UPT: |cccf1f1a1"..serverUptime.."|r"
 
-    topText = topText .. "\n" .. bgInfoString
+    text = text .. "\n" .. bgInfoString .. "    PVPINST: |cccf1f1a1"..formatTime(GetBattlefieldInstanceRunTime() / 1000).."|r"
     
-    topText = topText .. "\n" .. statsInfoString
-
+    text = text .. "\n" .. statsInfoString
+    
     local speed = GetUnitSpeed("player") / 7 *100
     local speedColor = RGBGradient(1 - tonumber(speed) / 250)
     if speed == 0 then speedColor = "888888" end
-    local speedString = ""..MOVE_SPEED..":  |ccc" .. speedColor .. ""..format("%d", speed).."|r"
+    local speedString = ""..MOVE_SPEED..": |ccc" .. speedColor .. ""..format("%d", speed).."|r"
       
-    topText = topText.."    "..speedString
+    text = text.."    "..speedString
 
     if self:GetValue() ~= particleDensity then
       self:SetValue(particleDensity) 
     end
 
-    if self.text:GetText() ~= topText then
-      self.text:SetText(topText)
+    if self.text:GetText() ~= text then
+      self.text:SetText(text)
     end
   end)
   
-  -- скрываем спам ".сервер инфо" от аддона и [по возможности] отображаем вывод только по нашему (ручному) запросу в чат
+  -- скрываем спам ".сервер инфо" от аддона и [по возможности] отображаем вывод только по (ручному) запросу в чат
   ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(self, event, msg, name, ...)
     if not (msg and name) then return end
 
@@ -696,24 +974,32 @@ do
     or msg:find("Server uptime:") 
     or msg:find("Next arena point distribution time:") 
     or msg:find("Server delay:") 
-    or msg:find("WoW Circle Cross Server:")
     --ru
     or msg:find("Игроков онлайн:")
     or msg:find("Продолжительность работы сервера:")
     or msg:find("WoW Circle Cross Server:")
     
-    if f.needShowServerInfo then
-      if isServerInfoMsg then
-        f.needShowServerInfo = f.needShowServerInfo +1
+    if isServerInfoMsg then
+      if not f.needShowServerInfo then
+        --print("filter+",msg)
+        return true
       end
-      
-      if (InCrossZone and f.needShowServerInfo >=3) or f.needShowServerInfo >= 7 then
-        f.needShowServerInfo = nil
-      end
-    end
 
-    if isServerInfoMsg and not f.needShowServerInfo then
-      return true
+      if f.needShowServerInfo then
+        if f.SYSMSG_SPAM_ERROR then
+          f.SYSMSG_SPAM_ERROR = nil
+          print("["..GetAddOnMetadata(ADDON_NAME, "Title").."]: |cff44ff44Отправлено.|r")
+        end
+      
+        if isServerInfoMsg then
+          f.needShowServerInfo = f.needShowServerInfo +1
+          --print(f.needShowServerInfo,msg)
+        end
+        
+        if (InCrossZone and f.needShowServerInfo >= 3) or f.needShowServerInfo >= 7 then
+          f.needShowServerInfo = nil
+        end
+      end
     end
   end)
 
@@ -751,7 +1037,7 @@ do
   local SECONDS_SEND_ADDON_MESSAGE_INTERVAL = 1
   local SECONDS_RTT_UPDATE_INTERVAL = 0.05
   local SECONDS_GAME_MENU_UPDATE_INTERVAL = 0.2
-  local NUM_ADDONS_TO_DISPLAY = 20
+  local NUM_ADDONS_TO_DISPLAY = 30
 
   local GameTooltip = GameTooltip
   local MainMenuMicroButton = MainMenuMicroButton
@@ -782,15 +1068,51 @@ do
   local GetNumRaidMembers = GetNumRaidMembers
   local GetNumPartyMembers = GetNumPartyMembers
   
-  ns.responceTime = 0
+  ns.responceTime = "-"
 
   local f=CreateFrame("frame")
   f:SetScript("OnEvent", function(self, event, ...) return self[event](self, ...) end)
   f:RegisterEvent("CHAT_MSG_ADDON")
   f:RegisterEvent("PLAYER_ENTERING_WORLD")
+  f:RegisterEvent("UI_ERROR_MESSAGE")
+  f:RegisterEvent("PLAYER_LEVEL_UP")
+  
+  local DelayedCall
+  do
+    local f = CreateFrame("frame")
+    local calls = {} 
+    local function OnUpdate(self, elapsed)
+      for i, call in ipairs(calls) do
+        call.time = call.time + elapsed
+        if call.time >= call.delay then
+          call.func()
+          tremove(calls, i) 
+        end
+      end
+    end
+    f:SetScript("OnUpdate", OnUpdate)
+    DelayedCall = function(delay, func)
+      tinsert(calls, { delay = delay, time = 0, func = func })
+    end
+  end
+
+  function f:UI_ERROR_MESSAGE(arg1)
+    if not ns.cannotSend and (arg1:find("Вы не можете использовать личные сообщения") or arg1:find("You cannot whisper")) then
+      ns.cannotSend = true
+      ns.responceTime, responceReceivedTime, lastRequestSendTime = "-", 0, nil
+      DelayedCall(60, function()
+        ns.cannotSend = nil
+      end)
+    end
+  end
+
+  function f:PLAYER_LEVEL_UP(...)
+    --print(event, ...)
+    ns.cannotSend = nil
+  end
 
   function f:PLAYER_ENTERING_WORLD()
-    ns.responceTime, responceReceivedTime, lastRequestSendTime = 0, 0
+    ns.responceTime, responceReceivedTime, lastRequestSendTime = "-", 0, nil
   end
 
   function f:CHAT_MSG_ADDON(...)
@@ -819,8 +1141,8 @@ do
     
     s.newRequestTime = s.newRequestTime + s.updateValueTime
     
-    if s.newRequestTime > SECONDS_SEND_ADDON_MESSAGE_INTERVAL and responceReceivedTime and playerName and playerName ~= UNKNOWN and playerName ~= "" then
-      local chan = not UnitIsDND("player") and "WHISPER" or IsInGuild() and "GUILD" or GetNumRaidMembers()>0 and "RAID" or GetNumPartyMembers()>0 and "PARTY"
+    if not ns.cannotSend and s.newRequestTime > SECONDS_SEND_ADDON_MESSAGE_INTERVAL and responceReceivedTime and playerName and playerName ~= UNKNOWN and playerName ~= "" then
+      local chan = UnitIsDND("player")==nil and "WHISPER" or IsInGuild() and "GUILD" or GetNumRaidMembers()>0 and "RAID" or GetNumPartyMembers()>0 and "PARTY"
       if chan then
         s.newRequestTime = 0
         responceReceivedTime = nil
@@ -992,7 +1314,7 @@ do
           local _, _, latency = GetNetStats()
           local _string = format(MAINMENUBAR_LATENCY_LABEL, latency)
           local textRegion = _G[GameTooltip:GetName().."TextLeft"..i]
-          local color = RGBGradient(ns.responceTime/150)
+          local color = tonumber(ns.responceTime) and RGBGradient(ns.responceTime/150) or "ffffff"
           textRegion:SetText(_string..", RTT: |cff"..color..""..ns.responceTime.."|r")
           GameTooltip:Show()
           break
