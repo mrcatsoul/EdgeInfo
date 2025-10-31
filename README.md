@@ -16,7 +16,7 @@ Displays the following:
 10) RTT (Round-trip time) — a more accurate ping using addon messages (https://wowwiki-archive.fandom.com/wiki/API_SendAddonMessage), updates rapidly; good for spotting real connection issues)
 11) Server info latency (spam-pings (.server info) every 5 sec; may show system error in chat when using .menu)
 12) BG stats: total games, wins, winrate (based on achievement stats)
-13) Stats: Attack power/Spell damage, Resilience, Crit, Haste, Hit, Parry, Armor
+13) Combat ratings: Attack power/Spell damage, Resilience, Crit, Haste, Hit, Parry, Armor
 14) Movement speed
 15) Quick update of information about memory consumption by wow addons + their extended list in the tooltip on the game menu button
 16) Beta: Spell flytime (time in ms between UNIT_SPELLCAST_SENT and UNIT_SPELLCAST_SUCCEEDED)
@@ -24,6 +24,7 @@ Displays the following:
 18) Server local time
 19) Online players count from "/who" command
 20) Map coordinates (X/Y)
+21) Time since the current battlefield has opened
 
 --------------------------------
 
@@ -51,7 +52,7 @@ WoW 3.3.5 аддон. На данный момент без графически
 10) RTT (https://ru.wikipedia.org/wiki/Круговая_задержка) - более реальное значение задержки/пинга через отправку самому себе сообщений аддона (https://wowwiki-archive.fandom.com/wiki/API_SendAddonMessage), в отличии от обычной задержки "из кнопки меню" - через эту цифру сразу будет видно если лагает интернет/есть проблемы с соединением, обновляется максимально быстро ⚠️ 
 11) задержка через сервер инфо (невидимо спамится каждые 5 сек, из-за спама может выскакивать системная ошибка в чат когда вызываем .menu, а-ля "Команда не может быть обработана в текущий момент")
 12) кол-во игр на бг, победы, винрейт (из данных статистики ачив)
-13) характеристики: ап(сила атаки)/спд(сила заклинаний), рес(устойчивость), крит, хаст(рейтинг скорости), хит(меткость), парирование, армор(броня)
+13) характеристики/рейтинги: ап(сила атаки)/спд(сила заклинаний), рес(устойчивость), крит, хаст(рейтинг скорости), хит(меткость), парирование, армор(броня)
 14) скорость передвижения в процентах
 15) быстрое обновление информации о потреблении памяти wow аддонами + их расширенный список в тултипе на кнопке игрового меню
 16) тест: время полёта заклинания (флайтайм, количество милисекунд между UNIT_SPELLCAST_SENT и UNIT_SPELLCAST_SUCCEEDED)
@@ -59,3 +60,4 @@ WoW 3.3.5 аддон. На данный момент без графически
 18) локальное время на сервере
 19) количество игроков онлайн по данным команды /who (/кто)
 20) координаты на карте (X/Y)
+21) время с момента открытия текущего поля боя 
