@@ -1,7 +1,8 @@
 ## Interface: 30300
 ## Title: _|cff33ddddEdgeInfo|r by |cFFC41F3BMori|r
 ## Title-ruRU: _|cff33ddddИнфа в углу|r от |cFFC41F3BMori|r
-## Version: 1.0.6 (30.10.2025)
+## Version: 1.0.8 (19.12.2025)
 ## Notes: Работа над кодом: GitHub/YouTube/Discord/Telegram: @mrcatsoul. |cFFC41F3BMori|r~WoWCircle WotLK x100
+## SavedVariables: mrcatsoul_Mori_EdgeInfo_Data
 
 Mori_EdgeInfo.lua
