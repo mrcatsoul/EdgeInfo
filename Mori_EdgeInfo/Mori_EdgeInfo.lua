@@ -5,9 +5,9 @@ local cfg, gcfg = {}, {}
 do  
   local ADDON_NAME, ns = ...
   
-  --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\PTSansNarrow.ttf"
-  local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebucbd.ttf"
-  local FONT_SIZE = 10
+  local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\PTSansNarrow.ttf"
+  --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebucbd.ttf"
+  local FONT_SIZE = 11
   local ALPHA = 0.9
 
   local PARTICLE_DENSITY_BAR_MIN_WIDTH = 50
@@ -97,6 +97,12 @@ do
   local CR_HIT_MELEE = CR_HIT_MELEE
   local CR_HIT_RANGED = CR_HIT_RANGED
   local CR_CRIT_RANGED = CR_CRIT_RANGED
+  
+  local LOCALE = GetLocale()
+  local ADDON_NAME_LOCALE = LOCALE=="ruRU" and GetAddOnMetadata(ADDON_NAME,"Title-ruRU") or GetAddOnMetadata(ADDON_NAME,"Title") or ADDON_NAME
+  local ADDON_NAME_LOCALE_SHORT = LOCALE=="ruRU" and GetAddOnMetadata(ADDON_NAME,"TitleS-ruRU") or GetAddOnMetadata(ADDON_NAME,"TitleShort") or ADDON_NAME_LOCALE
+  local ADDON_NOTES = LOCALE=="ruRU" and GetAddOnMetadata(ADDON_NAME,"Notes-ruRU") or GetAddOnMetadata(ADDON_NAME,"Notes") or UNKNOWN
+  local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME,"Version") or UNKNOWN
 
   local playerGUID = UnitGUID("player")
   
@@ -106,6 +112,8 @@ do
   local statsInfoString, bgInfoString, zoneInfoString = "", "", ""
   local RezTimer_Data, bg_statistics = _G.RezTimer_Data, _G.bg_statistics
   local x_GameTime = _G.x_GameTime
+  
+  local cfg = mrcatsoul_Mori_EdgeInfo_Data or {}
   
   local DelayedCall
   do
@@ -146,14 +154,14 @@ do
 
       Get = function(self)
         if(self.LastMinuteTimer == nil) then
-          local h,m = GetGameTime();
-          return h,m,0;
+          local h,m = GetGameTime()
+          return h,m,0
         end
-        local s = GetTime() - self.LastMinuteTimer;
+        local s = GetTime() - self.LastMinuteTimer
         if(s>59.999) then
-          s=59.999;
+          s=59.999
         end
-        return self.LastGameHour, self.LastGameMinute, s;
+        return self.LastGameHour, self.LastGameMinute, s
       end,
 
       -----------------------------------------------------------
@@ -167,18 +175,18 @@ do
       --
 
       OnUpdate = function(self)
-        local h,m = GetGameTime();
+        local h,m = GetGameTime()
         if(self.LastGameMinute == nil) then
-          self.LastGameHour = h;
-          self.LastGameMinute = m;
-          return;
+          self.LastGameHour = h
+          self.LastGameMinute = m
+          return
         end
         if(self.LastGameMinute == m) then
-          return;
+          return
         end
-        self.LastGameHour = h;
-        self.LastGameMinute = m;
-        self.LastMinuteTimer = GetTime();
+        self.LastGameHour = h
+        self.LastGameMinute = m
+        self.LastMinuteTimer = GetTime()
       end,
 
       -----------------------------------------------------------
@@ -188,12 +196,12 @@ do
       --
 
       Initialize = function(self)
-        self.Frame = CreateFrame("Frame");
-        self.Frame:SetScript("OnUpdate", function() self:OnUpdate(); end);
+        self.Frame = CreateFrame("Frame")
+        self.Frame:SetScript("OnUpdate", function() self:OnUpdate() end)
       end
     }
 
-    x_GameTime:Initialize();
+    x_GameTime:Initialize()
   end
   
   FriendsFrame:UnregisterEvent("WHO_LIST_UPDATE") 
@@ -662,7 +670,7 @@ do
       end
     else
       if showAttackPower then 
-        text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..RES..": |cff"..resColor..""..res.."|r    PAR: |cfff1f1a1" .. truncate(GetParryChance(),1) .. "|r   ARM: |cff" .. armorColor .. ""..armor.."|r"
+        text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..RES..": |cff"..resColor..""..res.."|r    PAR: |cfff1f1a1" .. truncate(GetParryChance(),1) .. "|r    ARM: |cff" .. armorColor .. ""..armor.."|r"
       elseif showSpellPower then
         text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .."|r    "..RES..": |cff"..resColor..""..res.."|r    "..CRIT..": |cff" ..hexcolorCrit .."" .. truncate(crit) .. "|r    "..HASTE..": |cff" .. hexcolorHaste .. "" ..truncate(haste) .. "|r    "..HIT..": |cff" .. hexHitColor .. ""..truncate(hit).."|r"
       else
@@ -732,6 +740,7 @@ do
   f:RegisterEvent("UNIT_STATS")
   f:RegisterEvent("UNIT_RANGEDDAMAGE")
   f:RegisterEvent("UNIT_DAMAGE")
+  f:RegisterEvent("UNIT_RESISTANCES")
   
   f:RegisterEvent("UNIT_SPELLCAST_SENT")
   f:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
@@ -753,6 +762,7 @@ do
       or event == "UNIT_DAMAGE"
       or event == "UNIT_ATTACK"
       or event == "UNIT_ATTACK_SPEED"
+      or event == "UNIT_RESISTANCES"
       ) and ... == "player"
       then
         statsInfoString = GetStatsText()
@@ -764,6 +774,11 @@ do
       elseif ... == "CustomFrames" then
         bg_statistics = _G.bg_statistics
         --x_GameTime = _G.x_GameTime
+      elseif ... == ADDON_NAME then
+        cfg = mrcatsoul_Mori_EdgeInfo_Data or cfg
+        mrcatsoul_Mori_EdgeInfo_Data = cfg
+        cfg.fontSize = cfg.fontSize or FONT_SIZE
+        f.text:SetFont(FONT_NAME, cfg.fontSize) 
       end
     elseif event == "UPDATE_BATTLEFIELD_STATUS" then
       bgInfoString = GetBgInfoText()
@@ -1015,6 +1030,135 @@ do
       f.needShowServerInfo = 0
     end
   end)
+  
+  -- slash commands
+  -- font size
+  SlashCmdList["edgeinfofontsize"] = function(...) 
+    local size = ...
+    if size and tonumber(size) then
+      cfg.fontSize = tonumber(size)
+      f.text:SetFont(FONT_NAME, tonumber(size)) 
+      print("cfg.fontSize",tonumber(size))
+    end
+  end
+  SLASH_edgeinfofontsize1 = "/edgeinfofontsize"
+  SLASH_edgeinfofontsize2 = "/meifs"
+  
+  -- settings
+  do
+    local width, height = 800, 500
+    local settingsScrollFrame = CreateFrame("ScrollFrame",ADDON_NAME.."SettingsScrollFrame",InterfaceOptionsFramePanelContainer,"UIPanelScrollFrameTemplate")
+    settingsScrollFrame.name = ADDON_NAME_LOCALE_SHORT -- Название во вкладке интерфейса
+    settingsScrollFrame:SetSize(width, height)
+    settingsScrollFrame:SetVerticalScroll(10)
+    settingsScrollFrame:SetHorizontalScroll(10)
+    settingsScrollFrame:Hide()
+    _G[ADDON_NAME.."SettingsScrollFrameScrollBar"]:SetPoint("topleft",ADDON_NAME.."SettingsScrollFrame","topright",-25,-25)
+    _G[ADDON_NAME.."SettingsScrollFrameScrollBar"]:SetFrameLevel(1000)
+    _G[ADDON_NAME.."SettingsScrollFrameScrollBarScrollDownButton"]:SetPoint("top",ADDON_NAME.."SettingsScrollFrameScrollBar","bottom",0,7)
+
+    local settingsFrame = CreateFrame("button", nil, InterfaceOptionsFramePanelContainer)
+    settingsFrame:SetSize(width, height) 
+    settingsFrame:SetAllPoints(InterfaceOptionsFramePanelContainer)
+    settingsFrame:Hide()
+
+    settingsScrollFrame:SetScrollChild(settingsFrame)
+
+    InterfaceOptions_AddCategory(settingsScrollFrame)
+
+    settingsScrollFrame:SetScript("OnShow", function()
+      settingsFrame:Show()
+    end)
+
+    settingsScrollFrame:SetScript("OnHide", function()
+      settingsFrame:Hide()
+    end)
+
+    settingsFrame.TitleText = settingsFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    settingsFrame.TitleText:SetPoint("TOPLEFT", 24, -24)
+    settingsFrame.TitleText:SetText(GetAddOnMetadata(ADDON_NAME, "Title").." v"..GetAddOnMetadata(ADDON_NAME, "Version"))
+
+    do
+      local f = CreateFrame("button", ADDON_NAME.."_tooltipFrame", settingsFrame)
+      f:SetPoint("center",settingsFrame.TitleText,"center")
+      f:SetSize(settingsFrame.TitleText:GetStringWidth()+11,settingsFrame.TitleText:GetStringHeight()+1) 
+      
+      f:SetScript("OnEnter", function(self) 
+        GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+        GameTooltip:SetText(""..GetAddOnMetadata(ADDON_NAME, "Title").." v"..GetAddOnMetadata(ADDON_NAME, "Version").."\n\n"..GetAddOnMetadata(ADDON_NAME, "Notes").."", nil, nil, nil, nil, true)
+        GameTooltip:Show() 
+      end)
+
+      f:SetScript("OnLeave", function(self) 
+        GameTooltip:Hide() 
+      end)
+    end
+    
+    -- font size
+    do
+      local editbox = CreateFrame("EditBox",nil,settingsFrame,"InputBoxTemplate") 
+      editbox:SetPoint("TOPLEFT", settingsFrame.TitleText, "BOTTOMLEFT", 8, -16)
+      editbox:SetAutoFocus(false)
+      editbox:SetSize(40,12)
+      editbox:SetFont(GameFontNormal:GetFont(), 12)
+      
+      local labelDefaultText = "font size (number, min: 1, default: "..FONT_SIZE..")"
+
+      editbox.label = settingsFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal") 
+      editbox.label:SetText(labelDefaultText)
+      editbox.label:SetPoint("LEFT", editbox, "RIGHT", 3, 0)
+      
+      editbox:SetScript('OnEditFocusLost', function(self) 
+        local num=tonumber(self:GetText())
+        if num and num>=1 then
+          cfg.fontSize = num
+          self:SetText(num)
+          f.text:SetFont(FONT_NAME, num) 
+          print("cfg.fontSize",num)
+        else
+          self:SetText(cfg.fontSize or FONT_SIZE)
+        end
+      end)
+
+      editbox:SetScript('OnEscapePressed', function(self) 
+        self:SetText(cfg.fontSize or FONT_SIZE)
+        self:ClearFocus() 
+      end)
+      
+      editbox:SetScript('OnUpdate', function(self) 
+        if self:HasFocus() then
+          local num=tonumber(self:GetText())
+          if num and num>=1 then
+            self:SetTextColor(0,1,0)
+            self.label:SetText(labelDefaultText)
+          else
+            self:SetTextColor(1,0,0)
+            self.label:SetText("|cffff0000incorrect value!|r "..labelDefaultText)
+          end
+        else
+          self:SetTextColor(1,1,1)
+          self.label:SetText(labelDefaultText)
+        end
+      end)
+      
+      editbox:SetScript('OnEnterPressed', function(self) 
+        local num=tonumber(self:GetText())
+        if num and num>=1 then
+          cfg.fontSize = num
+          self:SetText(num)
+          f.text:SetFont(FONT_NAME, num) 
+          print("cfg.fontSize",num)
+        else
+          self:SetText(cfg.fontSize or FONT_SIZE)
+        end
+        self:ClearFocus() 
+      end)
+      
+      editbox:SetScript("OnShow", function(self) 
+        self:SetText(cfg.fontSize or FONT_SIZE) 
+      end)
+    end
+  end
 end
 
 
@@ -1194,7 +1338,7 @@ do
 
   local topAddOns = {}
   for i=1, NUM_ADDONS_TO_DISPLAY do
-    topAddOns[i] = { value = 0, name = "" };
+    topAddOns[i] = { value = 0, name = "" }
   end
   
   local function GameMenu_OnEnter()
@@ -1203,58 +1347,58 @@ do
       GameTooltip:ClearLines()
       --print("GameMenu_OnEnter")
       
-      local string = "";
-      local i, j, k = 0, 0, 0;
+      local string = ""
+      local i, j, k = 0, 0, 0
      
-      GameTooltip_SetDefaultAnchor(GameTooltip, MainMenuMicroButton);
+      GameTooltip_SetDefaultAnchor(GameTooltip, MainMenuMicroButton)
       
-      GameTooltip_AddNewbieTip(MainMenuMicroButton, MainMenuMicroButton.tooltipText .." [".. ADDON_NAME_META .. "]", 1.0, 1.0, 1.0, MainMenuMicroButton.newbieText);
+      GameTooltip_AddNewbieTip(MainMenuMicroButton, MainMenuMicroButton.tooltipText .." [".. ADDON_NAME_META .. "]", 1.0, 1.0, 1.0, MainMenuMicroButton.newbieText)
      
       -- latency
-      local bandwidthIn, bandwidthOut, latency = GetNetStats();
-      string = format(MAINMENUBAR_LATENCY_LABEL, latency);
-      GameTooltip:AddLine("\n");
-      GameTooltip:AddLine(string, 1.0, 1.0, 1.0);
+      local bandwidthIn, bandwidthOut, latency = GetNetStats()
+      string = format(MAINMENUBAR_LATENCY_LABEL, latency)
+      GameTooltip:AddLine("\n")
+      GameTooltip:AddLine(string, 1.0, 1.0, 1.0)
       
       if ( SHOW_NEWBIE_TIPS == "1" ) then
-        GameTooltip:AddLine(NEWBIE_TOOLTIP_LATENCY, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1);
+        GameTooltip:AddLine(NEWBIE_TOOLTIP_LATENCY, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1)
       end
       
-      GameTooltip:AddLine("\n");
+      GameTooltip:AddLine("\n")
      
       -- framerate
-      string = format(MAINMENUBAR_FPS_LABEL, GetFramerate());
-      GameTooltip:AddLine(string, 1.0, 1.0, 1.0);
+      string = format(MAINMENUBAR_FPS_LABEL, GetFramerate())
+      GameTooltip:AddLine(string, 1.0, 1.0, 1.0)
       if ( SHOW_NEWBIE_TIPS == "1" ) then
-        GameTooltip:AddLine(NEWBIE_TOOLTIP_FRAMERATE, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1);
+        GameTooltip:AddLine(NEWBIE_TOOLTIP_FRAMERATE, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1)
       end
      
       -- AddOn mem usage
       for i=1, NUM_ADDONS_TO_DISPLAY, 1 do
-        topAddOns[i].value = 0;
+        topAddOns[i].value = 0
       end
      
-      UpdateAddOnMemoryUsage();
+      UpdateAddOnMemoryUsage()
       
-      local totalMem = 0;
+      local totalMem = 0
      
       for i=1, GetNumAddOns(), 1 do
-        local mem = GetAddOnMemoryUsage(i);
-        totalMem = totalMem + mem;
+        local mem = GetAddOnMemoryUsage(i)
+        totalMem = totalMem + mem
         
         for j=1, NUM_ADDONS_TO_DISPLAY, 1 do
           if (mem > topAddOns[j].value) then
             for k=NUM_ADDONS_TO_DISPLAY, 1, -1 do
               if(k == j) then
-                topAddOns[k].value = mem;
-                topAddOns[k].name = GetAddOnInfo(i):gsub("_Atom","HugeDick");
-                break;
+                topAddOns[k].value = mem
+                topAddOns[k].name = GetAddOnInfo(i):gsub("_Atom","HugeDick")
+                break
               elseif(k ~= 1) then
-                topAddOns[k].value = topAddOns[k-1].value;
-                topAddOns[k].name = topAddOns[k-1].name;
+                topAddOns[k].value = topAddOns[k-1].value
+                topAddOns[k].name = topAddOns[k-1].name
               end
             end
-            break;
+            break
           end
         end
       end
@@ -1263,45 +1407,45 @@ do
         local color = RGBGradient(totalMem/40000)
         
         if ( totalMem > 1000 ) then
-          totalMem = totalMem / 1000;
-          string = format(TOTAL_MEM_MB_ABBR, totalMem);
+          totalMem = totalMem / 1000
+          string = format(TOTAL_MEM_MB_ABBR, totalMem)
         else
-          string = format(TOTAL_MEM_KB_ABBR, totalMem); 
+          string = format(TOTAL_MEM_KB_ABBR, totalMem) 
         end
         
         string = "|cff".. color .. string .. "|r"
      
-        GameTooltip:AddLine("\n");
+        GameTooltip:AddLine("\n")
         
-        GameTooltip:AddLine(string, 1.0, 1.0, 1.0);
+        GameTooltip:AddLine(string, 1.0, 1.0, 1.0)
         
         if ( SHOW_NEWBIE_TIPS == "1" ) then
-          GameTooltip:AddLine(NEWBIE_TOOLTIP_MEMORY, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1);
+          GameTooltip:AddLine(NEWBIE_TOOLTIP_MEMORY, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1)
         end
         
-        local size;
+        local size
         
         for i=1, NUM_ADDONS_TO_DISPLAY, 1 do
           if ( topAddOns[i].value == 0 ) then
-            break;
+            break
           end
           
-          size = topAddOns[i].value;
+          size = topAddOns[i].value
           
           color = RGBGradient(size/5000)
           
           if ( size > 1000 ) then
-            size = size / 1000;
-            string = format(ADDON_MEM_MB_ABBR, size, topAddOns[i].name);
+            size = size / 1000
+            string = format(ADDON_MEM_MB_ABBR, size, topAddOns[i].name)
           else
-            string = format(ADDON_MEM_KB_ABBR, size, topAddOns[i].name);
+            string = format(ADDON_MEM_KB_ABBR, size, topAddOns[i].name)
           end
           
-          GameTooltip:AddLine("|cff989898"..i..".|r |cff"..color..""..string.."|r", 1.0, 1.0, 1.0);
+          GameTooltip:AddLine("|cff989898"..i..".|r |cff"..color..""..string.."|r", 1.0, 1.0, 1.0)
         end
       end
      
-      GameTooltip:Show();
+      GameTooltip:Show()
     end
   end
 
