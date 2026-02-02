@@ -5,8 +5,8 @@ local cfg, gcfg = {}, {}
 do  
   local ADDON_NAME, ns = ...
   
-  local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\PTSansNarrow.ttf"
-  --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebucbd.ttf"
+  --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\PTSansNarrow.ttf"
+  local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebucbd.ttf"
   local FONT_SIZE = 11
   local ALPHA = 0.9
 
@@ -119,20 +119,38 @@ do
   
   local DelayedCall
   do
-    local f = CreateFrame("frame")
-    local calls = {} 
+    local unpack, type, pcall, tinsert = unpack, type, pcall, tinsert
+    local f = CreateFrame("Frame")
+    local calls = {}
+
     local function OnUpdate(self, elapsed)
-      for i, call in ipairs(calls) do
-        call.time = call.time + elapsed
-        if call.time >= call.delay then
-          call.func()
-          tremove(calls, i) 
+      for i = #calls, 1, -1 do
+        local c = calls[i]
+        if c.cancelled then
+          tremove(calls, i)
+        else
+          c.time = c.time + elapsed
+          if c.time >= c.delay then
+            local ok, err = pcall(c.func, unpack(c.args or {}))
+            if not ok then
+              DEFAULT_CHAT_FRAME:AddMessage("DelayedCall error: "..tostring(err))
+            end
+            tremove(calls, i)
+          end
         end
       end
+      if #calls == 0 then
+        self:SetScript("OnUpdate", nil) 
+      end
     end
-    f:SetScript("OnUpdate", OnUpdate)
-    DelayedCall = function(delay, func)
-      tinsert(calls, { delay = delay, time = 0, func = func })
+
+    function DelayedCall(delay, func, ...)
+      if type(delay) ~= "number" or delay < 0 then delay = 0 end
+      if type(func) ~= "function" then error("DelayedCall: func must be function") end
+      tinsert(calls, { delay = delay, time = 0, func = func, args = {...}, cancelled = false })
+      if not f:GetScript("OnUpdate") then
+        f:SetScript("OnUpdate", OnUpdate)
+      end
     end
   end
   
@@ -1096,7 +1114,7 @@ do
     
     -- Обновление слайдера настроек частиц (если открыт)
     if self:GetValue() ~= particleDensity then
-       self:SetValue(particleDensity) 
+      self:SetValue(particleDensity) 
     end
   end)
   
@@ -1165,7 +1183,7 @@ do
     end
   end
   SLASH_edgeinfofontsize1 = "/edgeinfofontsize"
-  SLASH_edgeinfofontsize2 = "/meifs"
+  --SLASH_edgeinfofontsize2 = "/meifs"
   
   -- settings
   do
@@ -1409,20 +1427,38 @@ do
   
   local DelayedCall
   do
-    local f = CreateFrame("frame")
-    local calls = {} 
+    local unpack, type, pcall, tinsert = unpack, type, pcall, tinsert
+    local f = CreateFrame("Frame")
+    local calls = {}
+
     local function OnUpdate(self, elapsed)
-      for i, call in ipairs(calls) do
-        call.time = call.time + elapsed
-        if call.time >= call.delay then
-          call.func()
-          tremove(calls, i) 
+      for i = #calls, 1, -1 do
+        local c = calls[i]
+        if c.cancelled then
+          tremove(calls, i)
+        else
+          c.time = c.time + elapsed
+          if c.time >= c.delay then
+            local ok, err = pcall(c.func, unpack(c.args or {}))
+            if not ok then
+              DEFAULT_CHAT_FRAME:AddMessage("DelayedCall error: "..tostring(err))
+            end
+            tremove(calls, i)
+          end
         end
       end
+      if #calls == 0 then
+        self:SetScript("OnUpdate", nil) 
+      end
     end
-    f:SetScript("OnUpdate", OnUpdate)
-    DelayedCall = function(delay, func)
-      tinsert(calls, { delay = delay, time = 0, func = func })
+
+    function DelayedCall(delay, func, ...)
+      if type(delay) ~= "number" or delay < 0 then delay = 0 end
+      if type(func) ~= "function" then error("DelayedCall: func must be function") end
+      tinsert(calls, { delay = delay, time = 0, func = func, args = {...}, cancelled = false })
+      if not f:GetScript("OnUpdate") then
+        f:SetScript("OnUpdate", OnUpdate)
+      end
     end
   end
 
@@ -1671,4 +1707,3 @@ do
     GameMenu_AddRTT()
   end)
 end
-
