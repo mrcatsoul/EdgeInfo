@@ -5,8 +5,8 @@ local cfg, gcfg = {}, {}
 do  
   local ADDON_NAME, ns = ...
   
-  --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\PTSansNarrow.ttf"
-  local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebucbd.ttf"
+  local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\PTSansNarrow.ttf"
+  --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebucbd.ttf"
   local FONT_SIZE = 11
   local ALPHA = 0.9
 
@@ -1707,3 +1707,4 @@ do
     GameMenu_AddRTT()
   end)
 end
+
