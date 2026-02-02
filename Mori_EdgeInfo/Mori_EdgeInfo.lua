@@ -162,7 +162,7 @@ do
         local s = GetTime() - self.LastMinuteTimer
         local ms = tonumber(tostring(s):match("%.(%d?%d?%d?)"))
         s = tonumber(format("%d", s))
-        print(s,ms)
+        --print(s,ms)
         if(s>59.999) then
           s=59.999
         end
@@ -1671,3 +1671,4 @@ do
     GameMenu_AddRTT()
   end)
 end
+
