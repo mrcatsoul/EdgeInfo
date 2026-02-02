@@ -75,6 +75,7 @@ do
   local UnitChannelInfo = UnitChannelInfo
   local GetNumWhoResults = GetNumWhoResults
   local SendWho = SendWho
+  local GetPlayerMapPosition = GetPlayerMapPosition
   local _G = _G
   local format = _G.format
   local select = _G.select
@@ -86,6 +87,7 @@ do
   local max = _G.max
   local min = _G.min
   local modf = _G.math.modf
+  local abs = _G.math.abs
   local GetFramerate = GetFramerate
   local GetNetStats = GetNetStats
   local GetZonePVPInfo = GetZonePVPInfo
@@ -158,10 +160,13 @@ do
           return h,m,0
         end
         local s = GetTime() - self.LastMinuteTimer
+        local ms = tonumber(tostring(s):match("%.(%d?%d?%d?)"))
+        s = tonumber(format("%d", s))
+        print(s,ms)
         if(s>59.999) then
           s=59.999
         end
-        return self.LastGameHour, self.LastGameMinute, s
+        return self.LastGameHour, self.LastGameMinute, s, ms
       end,
 
       -----------------------------------------------------------
@@ -227,8 +232,12 @@ do
     return count
   end
   
+  -- local function rgbToHex(r, g, b)
+    -- return format("%02x%02x%02x", floor(255 * r), floor(255 * g), floor(255 * b))
+  -- end
+  
   local function rgbToHex(r, g, b)
-    return format("%02x%02x%02x", floor(255 * r), floor(255 * g), floor(255 * b))
+    return format("%02x%02x%02x", r*255, g*255, b*255)
   end
   
   local gradientColor = { 0, 1, 0, 1, 1, 0, 1, 0, 0 }
@@ -259,6 +268,37 @@ do
     -- Преобразуем значения компонент цвета в формат FFFFFF
     local hexColor = format("%02x%02x%02x", r * 255, g * 255, b * 255)
     return hexColor
+  end
+  
+  -- ОПТИМИЗАЦИЯ ЦВЕТА: Кэширование результата RGBGradient
+  -- Вычисляет цвет только если значение изменилось
+  local colorCache = {}
+  local function GetCachedColor(key, value, divisor)
+    -- value - текущее значение (число)
+    -- divisor - на что делить для градиента (150 для пинга, 60 для фпс и т.д.)
+    local cache = colorCache[key]
+    if not cache then
+       cache = { val = -1, color = "ffffff" }
+       colorCache[key] = cache
+    end
+    
+    -- Если значение то же самое, возвращаем старый цвет (экономим проц и память)
+    if cache.val == value then
+        return cache.color
+    end
+    
+    local ratio = value / divisor
+    -- Ограничиваем от 0 до 1
+    if ratio > 1 then ratio = 1 elseif ratio < 0 then ratio = 0 end
+    
+    -- Для некоторых значений логика инвертирована (FPS, Скорость)
+    if key == "fps" or key == "speed" then 
+        ratio = 1 - ratio 
+    end
+    
+    cache.val = value
+    cache.color = RGBGradient(ratio)
+    return cache.color
   end
 
   local function getTalentpointsSpent(spellID)
@@ -304,19 +344,27 @@ do
   end
   
   -- пвп таймер формат в мин:сек
-  local function formatTime(seconds)
-    local minutes = floor(seconds / 60)
-    local remainingSeconds = floor(seconds % 60)
+  -- local function formatTime(seconds)
+    -- local minutes = floor(seconds / 60)
+    -- local remainingSeconds = floor(seconds % 60)
 
-    if minutes == 0 then
-      return format("%ds", remainingSeconds)
-    elseif remainingSeconds == 0 then
-      return format("%dm", minutes)
+    -- if minutes == 0 then
+      -- return format("%ds", remainingSeconds)
+    -- elseif remainingSeconds == 0 then
+      -- return format("%dm", minutes)
+    -- else
+      -- return format("%dm %ds", minutes, remainingSeconds)
+    -- end
+  -- end
+  --_G.FormatTime_MinSec = formatTime
+  
+  local function formatTime(time)
+    if time >= 60 then
+      return format("%.1dm %.2ds", floor(time / 60), time % 60)
     else
-      return format("%dm %ds", minutes, remainingSeconds)
+      return format("%.1ds", time)
     end
   end
-  --_G.FormatTime_MinSec = formatTime
   
   -- милисекунды
   local TimeFormatter = {}
@@ -680,7 +728,7 @@ do
     
     return text
   end
-
+  
   local function GetZoneInfo()
     local _instanceDifficulty = instanceDifficulty and (" |ccc" .. zoneColor .. "("..instanceDifficulty..")|r") or ""
     local _spectatorMode = spectatorMode and ("  [spectator]") or ""
@@ -699,10 +747,10 @@ do
     end
     
     zoneInfoString = ""..MAP..": |ccc" .. zoneColor .. curZone .. "|r".._instanceDifficulty.."".._spectatorMode.."  "..x..", "..y.."  "..pvpInfo..""
-    
+
     return zoneInfoString
   end
-  
+
   local SpellUseDelay, SpellUseDelaySpell = "-"
   
   local function GetSpellUseDelay()
@@ -884,12 +932,58 @@ do
   
   f.text = text
 
+  local smooth_data = {}
+
+  local function GetSmoothedValue(key, targetVal)
+    local target = tonumber(targetVal)
+    if not target then
+      smooth_data[key] = nil
+      return targetVal
+    end
+    
+    if not smooth_data[key] then
+      smooth_data[key] = target
+      return target
+    end
+    
+    local current = smooth_data[key]
+    local diff = target - current
+    
+    if abs(diff) < 0.1 then
+      smooth_data[key] = target
+      return target
+    end
+
+    -- ЛОГИКА:
+    -- Мы хотим, чтобы всё изменение происходило, допустим, за 0.5 секунды.
+    -- Число шагов за это время = (секунды / интервал_обновления).
+    -- В твоем случае: 0.5 / 0.025 = 20 шагов.
+    
+    local duration = 0.1 -- время полной анимации в секундах
+    local numSteps = duration / min(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL, duration)
+    
+    -- Чтобы скорость была пропорциональна разнице (плавное затухание):
+    local step = diff / numSteps
+    
+    -- Гарантируем минимальный сдвиг, чтобы анимация не "залипала" на целых числах
+    if abs(step) < 0.05 then
+      step = (diff > 0) and 0.1 or -0.1
+    end
+    
+    current = current + step
+    smooth_data[key] = current
+    
+    return floor(current + 0.5)
+  end
+  
   f:SetScript("onupdate", function(self, elapsed)
-    self.t = self.t and self.t + elapsed or UPDATE_INTERVAL_GLOBAL
-    if self.t < UPDATE_INTERVAL_GLOBAL then return end
+    local update_interval_global = cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL
+    self.t = self.t and self.t + elapsed or update_interval_global
+    if self.t < update_interval_global then return end
     self.t = 0
     
-    self.servInfoTime = self.servInfoTime and self.servInfoTime + UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_SERVER_INFO
+    self.servInfoTime = self.servInfoTime and self.servInfoTime + update_interval_global or UPDATE_INTERVAL_SERVER_INFO
+    
     if not self.needWaitServerInfo and self.servInfoTime > UPDATE_INTERVAL_SERVER_INFO then
       self.needWaitServerInfo = true
       self.servInfoTime = 0
@@ -900,24 +994,23 @@ do
       end
     end
     
-    local text = ""
-
-    text = text .. "\n" .. GetZoneInfo()
-
-    local RezTimerInfo = GetRezTimerInfo()
-    if RezTimerInfo ~= "" then
-      text = text .. "\n" .. RezTimerInfo
-    end
+    -- === СБОР ДАННЫХ ===
     
-    text = text .. "\n"..TIME..": |cccf1f1a1" ..TimeFormatter:GetFormattedTime() .. "|r"
+    -- 1. Зона (кэшированная)
+    local zoneStr = GetZoneInfo()
+    
+    -- 2. Таймер реса
+    local rezStr = GetRezTimerInfo()
+
+    -- 3. Время (быстрое обновление)
+    local timeStr = "|cccf1f1a1" .. TimeFormatter:GetFormattedTime() .. "|r"
+    local realmTimeStr = ""
     if x_GameTime then
-      local h, m, s = x_GameTime:Get()
-      m = format("%02d", m)
-      if s ~= 0 then 
-        s = format("%.3f", s) 
-        text = text .. "    REALM: |cccf1f1a1"..h..":"..m..":"..s.."|r"
+      local h, m, s, ms = x_GameTime:Get()
+      if ms then 
+        realmTimeStr = format("    REALM: |cccf1f1a1%02d:%02d:%02d.%03d|r", h, m, s, ms)
       else
-        text = text .. "    REALM: |cccf1f1a1"..h..":"..m.."|r"
+        realmTimeStr = format("    REALM: |cccf1f1a1%02d:%02d|r", h, m)
       end
     end
     
@@ -935,45 +1028,75 @@ do
       particle_g = 1
     end
     
+    -- 4. Частицы
+    --local rawDensity = tonumber(GetCVar("particleDensity"))*100
+    --print(rawDensity)
+    --local particleColor = GetCachedColor("particle", rawDensity, 50) -- 50 середина, логика чуть упрощена для скорости
+    --if rawDensity < 50 then particleColor = rgbToHex(rawDensity/50, 1, 0) end -- Кастомная логика для частиц
     local particleColor = rgbToHex(particle_r, particle_g, 0)
     
-    local latency = select(3, GetNetStats())
-    local latencyColor = RGBGradient(latency / 150)
+    -- 5. Сглаженные статы
+    local latency = GetSmoothedValue("latency", select(3, GetNetStats()))
+    local latColor = GetCachedColor("latency", latency, 150)
     
-    local responce = ns.responceTime
-    local responceColor = tonumber(responce) and RGBGradient(responce / 150) or "f1f1a1"
+    local responce = GetSmoothedValue("responce", ns.responceTime)
+    local respColor = tonumber(responce) and GetCachedColor("responce", responce, 150) or "f1f1a1"
     
+    local connections = GetSmoothedValue("connections", activeConnections)
+    local whoResults = GetSmoothedValue("who", NumWhoResults)
+    
+    local srvDelayVal = GetSmoothedValue("srvDelay", serverDelay)
+    local srvDelayColor = tonumber(srvDelayVal) and GetCachedColor("srvDelay", srvDelayVal, 150) or "f1f1a1"
+    
+    local fps = GetFramerate()
+    local fpsColor = GetCachedColor("fps", fps, 60)
+    
+    -- Spell Delay
     local spellDelay, spell = GetSpellUseDelay()
-    local spellIcon = spell and select(3, GetSpellInfo(spell))
-    local spellDelayColor = tonumber(spellDelay) and RGBGradient(spellDelay / 150) or "f1f1a1"
-    spellDelay = spellIcon and spellDelay .. " |T" .. spellIcon .. ":"..(FONT_SIZE+1).."|t" or spellDelay
-    
-    local serverDelayColor = tonumber(serverDelay) and RGBGradient(serverDelay / 150) or "f1f1a1"
-    
-    local fps = format("%d", GetFramerate())
-    local fpsColor = RGBGradient(1 - tonumber(fps) / 60)
-    
-    text = text .. "\nFPS: |ccc" .. fpsColor .. "" .. fps .. "|r    "..PARTICLES..": |ccc" .. particleColor .. ""..format("%.0f", particleDensity).."|r    PL(SRV): |cccf1f1a1"..activeConnections.."|r    PL(WHO): |cccf1f1a1"..NumWhoResults.."|r"
-    
-    text = text .. "\nLAT: |ccc" .. latencyColor .. "" .. latency .. "|r    MSG(RTT): |ccc"..responceColor..""..responce.."|r    SPELL: |ccc"..spellDelayColor..""..spellDelay.."|r    "..SERV_DELAY..": |ccc"..serverDelayColor..""..serverDelay.."|r    UPT: |cccf1f1a1"..serverUptime.."|r"
-
-    text = text .. "\n" .. bgInfoString .. "    PVPINST: |cccf1f1a1"..formatTime(GetBattlefieldInstanceRunTime() / 1000).."|r"
-    
-    text = text .. "\n" .. statsInfoString
-    
-    local speed = GetUnitSpeed("player") / 7 *100
-    local speedColor = RGBGradient(1 - tonumber(speed) / 250)
-    if speed == 0 then speedColor = "888888" end
-    local speedString = ""..MOVE_SPEED..": |ccc" .. speedColor .. ""..format("%d", speed).."|r"
-      
-    text = text.."    "..speedString
-
-    if self:GetValue() ~= particleDensity then
-      self:SetValue(particleDensity) 
+    spellDelay = GetSmoothedValue("spellDelay", spellDelay)
+    local spellDelayColor = tonumber(spellDelay) and GetCachedColor("spell", spellDelay, 150) or "f1f1a1"
+    if spell then
+        local spellIcon = select(3, GetSpellInfo(spell))
+        if spellIcon then 
+            spellDelay = spellDelay .. " |T" .. spellIcon .. ":"..(FONT_SIZE+1).."|t"
+        end
     end
 
-    if self.text:GetText() ~= text then
-      self.text:SetText(text)
+    -- 6. Скорость
+    local speed = GetUnitSpeed("player") / 7 * 100
+    local speedColor = GetCachedColor("speed", speed, 250)
+    if speed == 0 then speedColor = "888888" end
+
+    -- === СБОРКА СТРОКИ (Единый format для экономии памяти) ===
+    
+    -- Собираем строку "блоками", чтобы избежать множества '..'
+    -- Блок 1: Верх (Зона, Рес, Время)
+    local topBlock = zoneStr
+    if rezStr ~= "" then topBlock = topBlock .. "\n" .. rezStr end
+    topBlock = topBlock .. "\n"..TIME..": " .. timeStr .. realmTimeStr
+    
+    -- Блок 2: Технические статы (FPS, Particles, PL)
+    local techBlock = format("\nFPS: |ccc%s%d|r    %s: |ccc%s%d|r    PL(SRV): |cccf1f1a1%s|r    PL(WHO): |cccf1f1a1%s|r",
+        fpsColor, fps, PARTICLES, particleColor, particleDensity, connections, whoResults)
+        
+    -- Блок 3: Сетевые статы (Lat, Msg, Spell, Serv, Upt)
+    local netBlock = format("\nLAT: |ccc%s%s|r    MSG(RTT): |ccc%s%s|r    SPELL: |ccc%s%s|r    %s: |ccc%s%s|r    UPT: |cccf1f1a1%s|r",
+        latColor, latency, respColor, responce, spellDelayColor, spellDelay, SERV_DELAY, srvDelayColor, srvDelayVal, serverUptime)
+        
+    -- Блок 4: Инфо (BG, Stats, Speed)
+    local infoBlock = format("\n%s    PVPINST: |cccf1f1a1%s|r\n%s    %s: |ccc%s%d|r",
+        bgInfoString, formatTime(GetBattlefieldInstanceRunTime() / 1000), statsInfoString, MOVE_SPEED, speedColor, speed)
+
+    -- Финальная склейка (всего 3 конкатенации вместо 20+)
+    local finalText = topBlock .. techBlock .. netBlock .. infoBlock
+
+    if self.text:GetText() ~= finalText then
+      self.text:SetText(finalText)
+    end
+    
+    -- Обновление слайдера настроек частиц (если открыт)
+    if self:GetValue() ~= particleDensity then
+       self:SetValue(particleDensity) 
     end
   end)
   
@@ -1108,7 +1231,7 @@ do
       editbox.label:SetText(labelDefaultText)
       editbox.label:SetPoint("LEFT", editbox, "RIGHT", 3, 0)
       
-      editbox:SetScript('OnEditFocusLost', function(self) 
+      editbox:SetScript("OnEditFocusLost", function(self) 
         local num=tonumber(self:GetText())
         if num and num>=1 then
           cfg.fontSize = num
@@ -1120,12 +1243,12 @@ do
         end
       end)
 
-      editbox:SetScript('OnEscapePressed', function(self) 
+      editbox:SetScript("OnEscapePressed", function(self) 
         self:SetText(cfg.fontSize or FONT_SIZE)
         self:ClearFocus() 
       end)
       
-      editbox:SetScript('OnUpdate', function(self) 
+      editbox:SetScript("OnUpdate", function(self) 
         if self:HasFocus() then
           local num=tonumber(self:GetText())
           if num and num>=1 then
@@ -1141,7 +1264,7 @@ do
         end
       end)
       
-      editbox:SetScript('OnEnterPressed', function(self) 
+      editbox:SetScript("OnEnterPressed", function(self) 
         local num=tonumber(self:GetText())
         if num and num>=1 then
           cfg.fontSize = num
@@ -1156,6 +1279,69 @@ do
       
       editbox:SetScript("OnShow", function(self) 
         self:SetText(cfg.fontSize or FONT_SIZE) 
+      end)
+    end
+    
+    -- update interval
+    do
+      local editbox = CreateFrame("EditBox",nil,settingsFrame,"InputBoxTemplate") 
+      editbox:SetPoint("TOPLEFT", settingsFrame.TitleText, "BOTTOMLEFT", 8, -36)
+      editbox:SetAutoFocus(false)
+      editbox:SetSize(40,12)
+      editbox:SetFont(GameFontNormal:GetFont(), 12)
+      
+      local labelDefaultText = "UPDATE_INTERVAL_GLOBAL (number, min: 0.01, default: "..UPDATE_INTERVAL_GLOBAL..")"
+
+      editbox.label = settingsFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal") 
+      editbox.label:SetText(labelDefaultText)
+      editbox.label:SetPoint("LEFT", editbox, "RIGHT", 3, 0)
+      
+      editbox:SetScript("OnEditFocusLost", function(self) 
+        local num=tonumber(self:GetText())
+        if num and num>=0.01 then
+          cfg.UPDATE_INTERVAL_GLOBAL = num
+          self:SetText(num)
+          print("cfg.UPDATE_INTERVAL_GLOBAL",num)
+        else
+          self:SetText(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL)
+        end
+      end)
+
+      editbox:SetScript("OnEscapePressed", function(self) 
+        self:SetText(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL)
+        self:ClearFocus() 
+      end)
+      
+      editbox:SetScript("OnUpdate", function(self) 
+        if self:HasFocus() then
+          local num=tonumber(self:GetText())
+          if num and num>=0.01 then
+            self:SetTextColor(0,1,0)
+            self.label:SetText(labelDefaultText)
+          else
+            self:SetTextColor(1,0,0)
+            self.label:SetText("|cffff0000incorrect value!|r "..labelDefaultText)
+          end
+        else
+          self:SetTextColor(1,1,1)
+          self.label:SetText(labelDefaultText)
+        end
+      end)
+      
+      editbox:SetScript("OnEnterPressed", function(self) 
+        local num=tonumber(self:GetText())
+        if num and num>=0.01 then
+          cfg.UPDATE_INTERVAL_GLOBAL = num
+          self:SetText(num)
+          print("cfg.UPDATE_INTERVAL_GLOBAL",num)
+        else
+          self:SetText(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL)
+        end
+        self:ClearFocus() 
+      end)
+      
+      editbox:SetScript("OnShow", function(self) 
+        self:SetText(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL) 
       end)
     end
   end
@@ -1264,7 +1450,7 @@ do
     
     if prefix == ADDON_NAME..":rtt_test" and lastRequestSendTime and tostring(lastRequestSendTime) == tostring(text) --[[and channel == "WHISPER"]] and playerName and playerName == sender then
       responceReceivedTime = GetTime()
-      ns.responceTime = modf((responceReceivedTime - lastRequestSendTime) *1000)
+      --ns.responceTime = modf((responceReceivedTime - lastRequestSendTime) *1000) -- test remove
       lastRequestSendTime = nil
       --print("received, responceTime:", ns.responceTime)
     end
