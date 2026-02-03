@@ -1,18 +1,17 @@
 local ADDON_NAME, ns = ...
-local cfg, gcfg = {}, {}
 
 -- инфа левый нижний угол
 do  
   local ADDON_NAME, ns = ...
   
   local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\PTSansNarrow.ttf"
-  --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebucbd.ttf"
+  --local FONT_NAME = "Interface\\addons\\"..ADDON_NAME.."\\trebuc.ttf"
   local FONT_SIZE = 11
   local ALPHA = 0.9
 
   local PARTICLE_DENSITY_BAR_MIN_WIDTH = 50
   local PARTICLE_DENSITY_BAR_MIN_HEIGHT = 7
-  local UPDATE_INTERVAL_GLOBAL = 0.025
+  local UPDATE_INTERVAL_GLOBAL_DEFAULT = 0.025
   local UPDATE_INTERVAL_SERVER_INFO = 5
   local FORCE_EN_LOCALE = true
   
@@ -844,6 +843,7 @@ do
         cfg = mrcatsoul_Mori_EdgeInfo_Data or cfg
         mrcatsoul_Mori_EdgeInfo_Data = cfg
         cfg.fontSize = cfg.fontSize or FONT_SIZE
+        cfg.updateIntervalGlobal = cfg.updateIntervalGlobal or UPDATE_INTERVAL_GLOBAL_DEFAULT
         f.text:SetFont(FONT_NAME, cfg.fontSize) 
       end
     elseif event == "UPDATE_BATTLEFIELD_STATUS" then
@@ -977,8 +977,8 @@ do
     -- Число шагов за это время = (секунды / интервал_обновления).
     -- В твоем случае: 0.5 / 0.025 = 20 шагов.
     
-    local duration = 0.1 -- время полной анимации в секундах
-    local numSteps = duration / min(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL, duration)
+    local duration = 0.05 -- время полной анимации в секундах
+    local numSteps = duration / min(cfg.updateIntervalGlobal, duration)
     
     -- Чтобы скорость была пропорциональна разнице (плавное затухание):
     local step = diff / numSteps
@@ -994,13 +994,15 @@ do
     return floor(current + 0.5)
   end
   
+  f.servInfoTime, f.t = 0, 0
+  
   f:SetScript("onupdate", function(self, elapsed)
-    local update_interval_global = cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL
-    self.t = self.t and self.t + elapsed or update_interval_global
-    if self.t < update_interval_global then return end
-    self.t = 0
-    
-    self.servInfoTime = self.servInfoTime and self.servInfoTime + update_interval_global or UPDATE_INTERVAL_SERVER_INFO
+    self.t = self.t + elapsed
+    --self.servInfoTime = self.servInfoTime and self.servInfoTime + cfg.updateIntervalGlobal
+    --print(self.t)
+    if self.t < cfg.updateIntervalGlobal then return end
+
+    self.servInfoTime = self.servInfoTime + self.t
     
     if not self.needWaitServerInfo and self.servInfoTime > UPDATE_INTERVAL_SERVER_INFO then
       self.needWaitServerInfo = true
@@ -1116,6 +1118,8 @@ do
     if self:GetValue() ~= particleDensity then
       self:SetValue(particleDensity) 
     end
+    
+    self.t = 0
   end)
   
   -- скрываем спам ".сервер инфо" от аддона и [по возможности] отображаем вывод только по (ручному) запросу в чат
@@ -1308,7 +1312,7 @@ do
       editbox:SetSize(40,12)
       editbox:SetFont(GameFontNormal:GetFont(), 12)
       
-      local labelDefaultText = "UPDATE_INTERVAL_GLOBAL (number, min: 0.01, default: "..UPDATE_INTERVAL_GLOBAL..")"
+      local labelDefaultText = "update interval global (number, min: 0.01, default: "..UPDATE_INTERVAL_GLOBAL_DEFAULT..")"
 
       editbox.label = settingsFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal") 
       editbox.label:SetText(labelDefaultText)
@@ -1317,16 +1321,16 @@ do
       editbox:SetScript("OnEditFocusLost", function(self) 
         local num=tonumber(self:GetText())
         if num and num>=0.01 then
-          cfg.UPDATE_INTERVAL_GLOBAL = num
+          cfg.updateIntervalGlobal = num
           self:SetText(num)
-          print("cfg.UPDATE_INTERVAL_GLOBAL",num)
+          print("cfg.updateIntervalGlobal",num)
         else
-          self:SetText(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL)
+          self:SetText(cfg.updateIntervalGlobal or UPDATE_INTERVAL_GLOBAL_DEFAULT)
         end
       end)
 
       editbox:SetScript("OnEscapePressed", function(self) 
-        self:SetText(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL)
+        self:SetText(cfg.updateIntervalGlobal or UPDATE_INTERVAL_GLOBAL_DEFAULT)
         self:ClearFocus() 
       end)
       
@@ -1349,17 +1353,17 @@ do
       editbox:SetScript("OnEnterPressed", function(self) 
         local num=tonumber(self:GetText())
         if num and num>=0.01 then
-          cfg.UPDATE_INTERVAL_GLOBAL = num
+          cfg.updateIntervalGlobal = num
           self:SetText(num)
-          print("cfg.UPDATE_INTERVAL_GLOBAL",num)
+          print("cfg.updateIntervalGlobal",num)
         else
-          self:SetText(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL)
+          self:SetText(cfg.updateIntervalGlobal or UPDATE_INTERVAL_GLOBAL_DEFAULT)
         end
         self:ClearFocus() 
       end)
       
       editbox:SetScript("OnShow", function(self) 
-        self:SetText(cfg.UPDATE_INTERVAL_GLOBAL or UPDATE_INTERVAL_GLOBAL) 
+        self:SetText(cfg.updateIntervalGlobal or UPDATE_INTERVAL_GLOBAL_DEFAULT) 
       end)
     end
   end
@@ -1486,9 +1490,9 @@ do
     
     if prefix == ADDON_NAME..":rtt_test" and lastRequestSendTime and tostring(lastRequestSendTime) == tostring(text) --[[and channel == "WHISPER"]] and playerName and playerName == sender then
       responceReceivedTime = GetTime()
-      --ns.responceTime = modf((responceReceivedTime - lastRequestSendTime) *1000) -- test remove
+      ns.responceTime = modf((responceReceivedTime - lastRequestSendTime) *1000) -- test remove
       lastRequestSendTime = nil
-      --print("received, responceTime:", ns.responceTime)
+      --print("|cff00ffffresponceTime(received):", ns.responceTime)
     end
   end
 
@@ -1505,7 +1509,16 @@ do
     
     local _time = GetTime()
     
+    if lastRequestSendTime and responceReceivedTime==nil and s.newRequestTime ~= 0 then
+      local diff = _time - lastRequestSendTime
+      if diff > 0 then
+        ns.responceTime = modf((_time - lastRequestSendTime) *1000)
+        --print("|cffff5500responceTime(connection dead):", ns.responceTime)
+      end
+    end
+    
     s.newRequestTime = s.newRequestTime + s.updateValueTime
+    --print(s.newRequestTime)
     
     if not ns.cannotSend and s.newRequestTime > SECONDS_SEND_ADDON_MESSAGE_INTERVAL and responceReceivedTime and playerName and playerName ~= UNKNOWN and playerName ~= "" then
       local chan = UnitIsDND("player")==nil and "WHISPER" or IsInGuild() and "GUILD" or GetNumRaidMembers()>0 and "RAID" or GetNumPartyMembers()>0 and "PARTY"
@@ -1513,19 +1526,11 @@ do
         s.newRequestTime = 0
         responceReceivedTime = nil
         lastRequestSendTime = _time
-        --print("sending...")
+        --print("|cffffff00sending...|r")
         SendAddonMessage(ADDON_NAME..":rtt_test", tostring(_time), chan, playerName)
       end
     end
-    
-    if lastRequestSendTime then
-      local diff = _time - lastRequestSendTime
-      if diff > 0 then
-        ns.responceTime = modf((_time - lastRequestSendTime) *1000)
-        --print("responceTime:", ns.responceTime)
-      end
-    end
-    
+
     s.updateValueTime = 0
   end)
   
@@ -1707,4 +1712,3 @@ do
     GameMenu_AddRTT()
   end)
 end
-
