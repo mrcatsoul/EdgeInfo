@@ -374,53 +374,53 @@ do
         default = 4, min = 1, max = 20 },
         
       { key = "showMovementSpeed",
-        label = { en = "showMovementSpeed", ru = "showMovementSpeed" },
-        tooltip = { en = "showMovementSpeed", ru = "showMovementSpeed" },
+        label = { en = "showMovementSpeed", ru = "Показывать скорость передвижения" },
+        tooltip = { en = "showMovementSpeed", ru = "Показывать скорость передвижения" },
         default = true },
         
       { key = "showAttackPowerOrSpd",
-        label = { en = "showAttackPowerOrSpd", ru = "showAttackPowerOrSpd" },
-        tooltip = { en = "showAttackPowerOrSpd", ru = "showAttackPowerOrSpd" },
+        label = { en = "showAttackPowerOrSpd", ru = "Показывать ап/спд" },
+        tooltip = { en = "showAttackPowerOrSpd", ru = "Показывать ап/спд" },
         default = true },
         
       { key = "showResilience",
-        label = { en = "showResilience", ru = "showResilience" },
-        tooltip = { en = "showResilience", ru = "showResilience" },
+        label = { en = "showResilience", ru = "Показывать устойчивость" },
+        tooltip = { en = "showResilience", ru = "Показывать устойчивость" },
         default = true },
         
       { key = "showParry",
-        label = { en = "showParry", ru = "showParry" },
-        tooltip = { en = "showParry", ru = "showParry" },
+        label = { en = "showParry", ru = "Показывать парирование" },
+        tooltip = { en = "showParry", ru = "Показывать парирование" },
         default = true },
         
       { key = "showDodge",
-        label = { en = "showDodge", ru = "showDodge" },
-        tooltip = { en = "showDodge", ru = "showDodge" },
+        label = { en = "showDodge", ru = "Показывать уклонение" },
+        tooltip = { en = "showDodge", ru = "Показывать уклонение" },
         default = false },
         
       { key = "showArmor",
-        label = { en = "showArmor", ru = "showArmor" },
-        tooltip = { en = "showArmor", ru = "showArmor" },
+        label = { en = "showArmor", ru = "Показывать броню" },
+        tooltip = { en = "showArmor", ru = "Показывать броню" },
         default = true },
         
       { key = "showCrit",
-        label = { en = "showCrit", ru = "showCrit" },
-        tooltip = { en = "showCrit", ru = "showCrit" },
+        label = { en = "showCrit", ru = "Показывать крит" },
+        tooltip = { en = "showCrit", ru = "Показывать крит" },
         default = false },
         
       { key = "showHaste",
-        label = { en = "showHaste", ru = "showHaste" },
-        tooltip = { en = "showHaste", ru = "showHaste" },
+        label = { en = "showHaste", ru = "Показывать рейтинг скорости" },
+        tooltip = { en = "showHaste", ru = "Показывать рейтинг скорости" },
         default = false },
         
       { key = "showHit",
-        label = { en = "showHit", ru = "showHit" },
-        tooltip = { en = "showHit", ru = "showHit" },
+        label = { en = "showHit", ru = "Показывать рейтинг меткости" },
+        tooltip = { en = "showHit", ru = "Показывать рейтинг меткости" },
         default = false },
         
       { key = "showPercentSign",
-        label = { en = "showPercentSign", ru = "showPercentSign" },
-        tooltip = { en = "showPercentSign", ru = "showPercentSign" },
+        label = { en = "showPercentSign", ru = "Показывать знак процента" },
+        tooltip = { en = "showPercentSign", ru = "Показывать знак процента" },
         default = true },
     }
     
@@ -800,7 +800,7 @@ do
       cfgPanel.VisualUpdate()
       
       DelayedCall(0.1, function()
-        print(ADDON_NAME_LOCALE, "loaded.", cfgPanel.MakeChatLink("Settings", "Settings"))
+        print(ADDON_NAME_LOCALE, cfgPanel.L({ en = "loaded", ru = "загружен" })..".", cfgPanel.MakeChatLink(cfgPanel.L({ en = "Settings", ru = "Настройки" }), "Settings"))
       end)
       
       return cfg
@@ -2716,3 +2716,4 @@ do
     ns.dynamicParticleDensity = f
   end
 end
+
