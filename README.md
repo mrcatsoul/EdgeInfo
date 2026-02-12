@@ -1,4 +1,4 @@
-WoW 3.3.5 addon.
+WoW 3.3.5 addon. https://youtu.be/JjI-FcJ5T28
 
 Currently has no options or settings UI, but some values can be tweaked through constants in the Lua file(Mori_EdgeInfo.lua).
 
