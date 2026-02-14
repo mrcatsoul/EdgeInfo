@@ -33,6 +33,8 @@ do
   ns.fontsFlags = {
     "NONE", "MONOCHROME", "OUTLINE", "OUTLINE, MONOCHROME", "MONOCHROMEOUTLINE", "THICKOUTLINE", "",
   }
+  
+  local cfg = mrcatsoul_Mori_EdgeInfo_Data or {}
 
   local ACHIV_CATEGORY_ID_BATTLEGROUNDS_PLAYED = 839 --GetStatisticId("Battlegrounds", "Battlegrounds played")
   local ACHIV_CATEGORY_ID_BATTLEGROUNDS_WON = 840 --GetStatisticId("Battlegrounds", "Battlegrounds won")
@@ -72,6 +74,7 @@ do
   local GetNumWhoResults = GetNumWhoResults
   local SendWho = SendWho
   local GetPlayerMapPosition = GetPlayerMapPosition
+  local GetBattlefieldInstanceRunTime = GetBattlefieldInstanceRunTime
   local _G = _G
   local format = _G.format
   local select = _G.select
@@ -86,12 +89,15 @@ do
   local abs = _G.math.abs
   local tinsert = tinsert
   local tconcat = table.concat
+  local strep = string.rep
+  local wipe = wipe
   local GetFramerate = GetFramerate
   local GetNetStats = GetNetStats
   local GetZonePVPInfo = GetZonePVPInfo
   local date = _G.date
   local time = _G.time
   local GetTime = _G.GetTime
+  local GetLocale = GetLocale
   local CR_HASTE_SPELL = CR_HASTE_SPELL
   local CR_HIT_RANGED = CR_HIT_RANGED
   local CR_HIT_MELEE = CR_HIT_MELEE
@@ -104,85 +110,94 @@ do
   local serverDelay, serverUptime, activeConnections, NumWhoResults = 0, "-", 0, 0
   local statsInfoString, bgInfoString, zoneInfoString, needShowServerInfo, was_SYSMSG_SPAM_ERROR_error = "", "", ""
   local RezTimer_Data, bg_statistics = _G.RezTimer_Data, _G.bg_statistics
+  local SYSMSG_SPAM_ERROR = GetLocale()=="ruRU" and "Команда не может быть обработана в текущий момент" or "This command cann't be processed now"
 
   local L = GetLocale()
-  L = L=="ruRU" and FORCE_EN_LOCALE and "enUS" or FORCE_RUS_LOCALE and "ruRU" or L -- test shit
-  
-  local ADDON_NAME_LOCALE = L=="ruRU" and GetAddOnMetadata(ADDON_NAME,"Title-ruRU") or GetAddOnMetadata(ADDON_NAME,"Title") or ADDON_NAME
-  local ADDON_NAME_LOCALE_SHORT = L=="ruRU" and GetAddOnMetadata(ADDON_NAME,"TitleS-ruRU") or GetAddOnMetadata(ADDON_NAME,"TitleShort") or ADDON_NAME_LOCALE
-  local ADDON_NOTES = L=="ruRU" and GetAddOnMetadata(ADDON_NAME,"Notes-ruRU") or GetAddOnMetadata(ADDON_NAME,"Notes") or UNKNOWN
-  local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME,"Version") or UNKNOWN
-  
-  local SYSMSG_SPAM_ERROR = GetLocale()=="ruRU" and "Команда не может быть обработана в текущий момент" or "This command cann't be processed now"
-  
-  local PARTICLES = L=="ruRU" and "Частицы" or "PARTICLES"
-  local SERV_DELAY = L=="ruRU" and "Серв" or "SERV"
-  local GAMES = L=="ruRU" and "Игр" or "GAMES"
-  local WINS = L=="ruRU" and "Побед" or "WINS"
-  local WINRATE = L=="ruRU" and "Винрейт" or "WR"
-  local ATTACK_POWER = L=="ruRU" and "Ап" or "AP"
-  local SPELL_POWER = L=="ruRU" and "Спд" or "SPD"
-  local RES = L=="ruRU" and "Уст" or "RSL"
-  local CRIT = L=="ruRU" and "Крт" or "CRT"
-  local HASTE = L=="ruRU" and "Скр" or "HST"
-  local HIT = L=="ruRU" and "Мтк" or "HIT"
-  local MOVE_SPEED = L=="ruRU" and "Движ" or "MOV"
-  local TO_RES = L=="ruRU" and "До реса" or "RES"
-  local BY_CORPSE = L=="ruRU" and "по телу" or "CORPSE"
-  local TO_RES_BY_CORPSE = L=="ruRU" and "Рес по телу" or "RES CORPSE"
-  local ENEMIES = L=="ruRU" and "врагов реснется" or "DEAD ENMS"
-  local READY = L=="ruRU" and "готов" or "ready"
-  local RATING = L=="ruRU" and "БГ очки" or "PTS"
-  local MAP = L=="ruRU" and "Карта" or "MAP"
-  local TIME = L=="ruRU" and "Время" or "TIME"
-  local PLWHO = L=="ruRU" and "Онлайн(кто)" or "PL(WHO)"
-  local PLSRV = L=="ruRU" and "Онлайн(серв)" or "PL(SRV)"
-  local PVPINST = L=="ruRU" and "БГ длится" or "PVPINST"
-  local UPTIME = L=="ruRU" and "Аптайм" or "UPT"
-  local PVPFLAG = --[[L=="ruRU" and "ПвП" or]] "PvP"
-  local REALM = L=="ruRU" and "Сервер" or "REALM"
-  local ARMOR = L=="ruRU" and "Бро" or "ARM"
-  local PARRY = L=="ruRU" and "Пар" or "PAR"
-  local DODGE = L=="ruRU" and "Укл" or "DOD"
-  local SPELL = L=="ruRU" and "Закл" or "SPELL"
-  local INCORRECT_VALUE = L=="ruRU" and "Некоректное значение" or "Incorrect value"
-  
-  -- settings
-  local FRAME_WIDTH, FRAME_HEIGHT = 800, 400
-  local ROW_HEIGHT = 20
-  
-  local cfg = mrcatsoul_Mori_EdgeInfo_Data or {}
+  L = L=="ruRU" and FORCE_EN_LOCALE and "enUS" or FORCE_RUS_LOCALE and "ruRU" or GetLocale()
 
+  local ADDON_NAME_LOCALE = GetAddOnMetadata(ADDON_NAME,"Title") or ADDON_NAME
+  local ADDON_NOTES = GetAddOnMetadata(ADDON_NAME,"Notes") or UNKNOWN
+  local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME,"Version") or UNKNOWN
+
+  local PARTICLES, SERV_DELAY, GAMES, WINS, WINRATE, ATTACK_POWER
+  local SPELL_POWER, RES, CRIT, HASTE, HIT, MOVE_SPEED, TO_RES
+  local BY_CORPSE, TO_RES_BY_CORPSE, ENEMIES, READY, RATING, MAP
+  local TIME, PLWHO, PLSRV, PVPINST, UPTIME, PVPFLAG, REALM
+  local ARMOR, PARRY, DODGE, SPELL, INCORRECT_VALUE
+  
+  function ns.ForceUpdateLocale()
+    L = GetLocale()=="ruRU" and cfg.force_en_locale and "enUS" or cfg.force_rus_locale and "ruRU" or GetLocale() 
+  
+    local ADDON_NAME_LOCALE_SHORT = L=="ruRU" and GetAddOnMetadata(ADDON_NAME,"TitleS-ruRU") or GetAddOnMetadata(ADDON_NAME,"TitleShort") or ADDON_NAME_LOCALE
+    
+    PARTICLES = L=="ruRU" and "Частицы" or "PARTICLES"
+    SERV_DELAY = L=="ruRU" and "Серв" or "SERV"
+    GAMES = L=="ruRU" and "Игр" or "GAMES"
+    WINS = L=="ruRU" and "Побед" or "WINS"
+    WINRATE = L=="ruRU" and "Винрейт" or "WR"
+    ATTACK_POWER = L=="ruRU" and "Ап" or "AP"
+    SPELL_POWER = L=="ruRU" and "Спд" or "SPD"
+    RES = L=="ruRU" and "Уст" or "RSL"
+    CRIT = L=="ruRU" and "Кри" or "CRT"
+    HASTE = L=="ruRU" and "Ско" or "HST"
+    HIT = L=="ruRU" and "Мет" or "HIT"
+    MOVE_SPEED = L=="ruRU" and "Движ" or "MOV"
+    TO_RES = L=="ruRU" and "До реса" or "RES"
+    BY_CORPSE = L=="ruRU" and "по телу" or "CORPSE"
+    TO_RES_BY_CORPSE = L=="ruRU" and "Рес по телу" or "RES CORPSE"
+    ENEMIES = L=="ruRU" and "Врагов реснется" or "DEAD ENMS"
+    READY = L=="ruRU" and "готов" or "ready"
+    RATING = L=="ruRU" and "БГ очки" or "PTS"
+    MAP = L=="ruRU" and "Карта" or "MAP"
+    TIME = L=="ruRU" and "Время" or "TIME"
+    PLWHO = L=="ruRU" and "Онлайн(кто)" or "Players(WHO)"
+    PLSRV = L=="ruRU" and "Онлайн(серв)" or "Players(SERV)"
+    PVPINST = L=="ruRU" and "БГ длится" or "PVPINST"
+    UPTIME = L=="ruRU" and "Аптайм" or "UPT"
+    PVPFLAG = --[[L=="ruRU" and "ПвП" or]] "PvP"
+    REALM = L=="ruRU" and "Серв" or "REALM"
+    ARMOR = L=="ruRU" and "Бро" or "ARM"
+    PARRY = L=="ruRU" and "Пар" or "PAR"
+    DODGE = L=="ruRU" and "Укл" or "DOD"
+    SPELL = L=="ruRU" and "Закл" or "SPELL"
+    INCORRECT_VALUE = L=="ruRU" and "Некоректное значение" or "Incorrect value"
+  end
+  
+  ns.ForceUpdateLocale()
+
+  -- -------------------------
+  -- localization helper
+  -- -------------------------
+  function ns.GetLocaleKey()
+    if (L~="ruRU" and FORCE_RUS_LOCALE) or cfg.force_rus_locale then return "ru" end
+    if (L=="ruRU" and FORCE_EN_LOCALE) or cfg.force_en_locale then return "en" end
+    local loc = (GetLocale and GetLocale()) or "enUS"
+    if loc:sub(1,2) == "ru" then return "ru" end
+    return "en"
+  end
+
+  local function Localise(tbl)
+    if not tbl then return nil end
+    local k = ns.GetLocaleKey()
+    return tbl[k] or tbl.en or tbl.ru or ""
+  end
+    
   -- -------------------------
   -- settings UI: scroll frame + panel
   -- -------------------------
   do
+    local FRAME_WIDTH, FRAME_HEIGHT = 800, 400
+    local ROW_HEIGHT = 20
+  
     local cfgPanel = CreateFrame("frame", ADDON_NAME.."SettingsPanel", InterfaceOptionsFramePanelContainer)
     ns.cfgPanel = cfgPanel
     cfgPanel:SetSize(FRAME_WIDTH, FRAME_HEIGHT)
     cfgPanel:SetAllPoints(InterfaceOptionsFramePanelContainer)
     cfgPanel:Hide()
 
-    -- -------------------------
-    -- localization helper
-    -- -------------------------
-    function cfgPanel.GetLocaleKey()
-      if (L~="ruRU" and FORCE_RUS_LOCALE) or cfg.force_rus_locale then return "ru" end
-      if (L=="ruRU" and FORCE_EN_LOCALE) or cfg.force_en_locale then return "en" end
-      local loc = (GetLocale and GetLocale()) or "enUS"
-      if loc:sub(1,2) == "ru" then return "ru" end
-      return "en"
-    end
-
-    function cfgPanel.L(tbl)
-      if not tbl then return nil end
-      local k = cfgPanel.GetLocaleKey()
-      return tbl[k] or tbl.en or tbl.ru or ""
-    end
-    
     local cfgScroll = CreateFrame("ScrollFrame", ADDON_NAME.."SettingsScrollFrame", InterfaceOptionsFramePanelContainer, "UIPanelScrollFrameTemplate")
     cfgScroll:SetScrollChild(cfgPanel)
-    --cfgScroll.name = "|cff00ffff" .. cfgPanel.L({ en = ADDON_NAME, ru = ADDON_NAME })
+    --cfgScroll.name = "|cff00ffff" .. Localise({ en = ADDON_NAME, ru = ADDON_NAME })
     cfgScroll.name = ADDON_NAME_LOCALE
     cfgScroll:SetSize(FRAME_WIDTH, FRAME_HEIGHT)
     cfgScroll:SetVerticalScroll(0)
@@ -270,7 +285,7 @@ do
     cfgPanel.options = {
       { key = "fontSize",
         label = { en = "Font size", ru = "Размер шрифта" },
-        tooltip = { en = "Font size in pixels", ru = "Размер шрифта в пикселях" },
+        tooltip = { en = "Font size in pixels", ru = "Размер шрифта в пикселях.\nЧтобы применить - нажать ENTER." },
         default = 12, min = 5, max = 40 },
         
       { key = "fontName",
@@ -285,54 +300,189 @@ do
         
       { key = "fontShadow",
         label = { en = "Font shadow", ru = "Тень под шрифтом" },
-        tooltip = { en = "Font shadow", ru = "Тень под шрифтом" },
+        tooltip = { en = "Font shadow", ru = "Тень под шрифтом.\nЧтобы применить - нажать ENTER." },
         default = true },
         
       { key = "updateIntervalGlobal",
-        label = { en = "Global update interval (seconds)", ru = "Глобальный интервал обновления всего текста в секундах" },
-        tooltip = { en = "Global update interval (seconds)", ru = "Глобальный интервал обновлени всего текста в секундах" },
+        label = { en = "Global update interval (seconds)", ru = "Скорость обновления текста в секундах" },
+        tooltip = { en = "Global update interval (seconds)", ru = "Скорость обновления текста в секундах.\nВлияет на потребление памяти аддоном. Меньше значение = быстрее обновление = больше потребление памяти.\nЧтобы применить - нажать ENTER." },
         default = 0.025, min = 0.01, max = 60 },
         
-      { key = "showParticleDensityBar",
-        label = { en = "Show particle density bar (resize: shift+mouseover scroll on frame)", ru = "Показывать полосу плотности частиц (размер меняется через шифт+колесо мыши по фрейму)" },
-        tooltip = { en = "Display particle density bar (resize: shift+mouseover scroll on frame)", ru = "Отображать полосу плотности частиц (размер меняется через шифт+колесо мыши по фрейму)" },
-        default = false },
-        
-      { key = "showBattlegroundStats",
-        label = { en = "Show battleground stats", ru = "Показывать статистику поля боя" },
-        tooltip = { en = "Show basic battleground statistics", ru = "Показывать базовую статистику поля боя" },
+      { key = "RezTimer",
+        label = { en = "Show corpse recovery delay and RezTimer info (https://github.com/mrcatsoul/RezTimer)", ru = "Показывать время до реса \"по телу\" и время до реса у духа на БГ + потенциальное кол-во ресающихся врагов из RezTimer" },
+        tooltip = { en = "Show corpse recovery delay and RezTimer info", ru = "Показывать время до реса \"по телу\" и время до реса у духа на БГ + потенциальное кол-во ресающихся врагов из RezTimer.\nhttps://github.com/mrcatsoul/RezTimer" },
         default = true },
         
-      { key = "RezTimer",
-        label = { en = "Show corpse recovery delay and RezTimer info (https://github.com/mrcatsoul/RezTimer)", ru = "Показывать время до реса \"по телу\" и инфу из RezTimer-а (https://github.com/mrcatsoul/RezTimer)" },
-        tooltip = { en = "Show corpse recovery delay and RezTimer info (https://github.com/mrcatsoul/RezTimer)", ru = "Показывать время до реса \"по телу\" и инфу из RezTimer-а (https://github.com/mrcatsoul/RezTimer)", ru = "Показывать инфу из RezTimer-а и время до реса \"по телу\" (https://github.com/mrcatsoul/RezTimer)" },
+      { key = "showBgInstanceRunTime",
+        label = { en = "showBgInstanceRunTime", ru = "Показывать время с момента открытия текущего пвп инста (БГ/арены)" },
+        tooltip = { en = "showBgInstanceRunTime", ru = "Показывать время с момента открытия текущего пвп инста (БГ/арены)" },
         default = true },
 
       { key = "attachFrameToUIParent",
-        label = { en = "Hide addon info when UI is hidden (ALT+Z)", ru = "Скрывать инфо аддона при скрытии интерфейса (ALT+Z)" },
-        tooltip = { en = "Hide addon info visible when UI is hidden (ALT+Z)", ru = "Скрывать инфо аддона при скрытии интерфейса (ALT+Z)" },
+        label = { en = "Hide addon info when UI is hidden (ALT+Z)", ru = "Скрывать текст аддона при скрытии интерфейса (ALT+Z)" },
+        tooltip = { en = "Hide addon info visible when UI is hidden (ALT+Z)", ru = "Скрывать текст аддона при скрытии интерфейса (ALT+Z)" },
         default = false },
         
       { key = "alpha",
-        label = { en = "Opacity", ru = "Прозрачность" },
-        tooltip = { en = "Frame opacity from 0 to 1", ru = "Прозрачность фрейма от 0 до 1 (задать к примеру 0.5 для прозрачности в 50%)" },
+        label = { en = "Opacity", ru = "Прозрачность текста" },
+        tooltip = { en = "Frame opacity from 0 to 1", ru = "Прозрачность текста от 0 до 1.\nЗадать к примеру 0.5 для прозрачности в 50%.\nЧтобы применить - нажать ENTER." },
         default = 0.9, min = 0, max = 1 },
         
       { key = "force_en_locale",
-        label = { en = "Force English locale", ru = "Принудительно английский" },
+        label = { en = "Force English locale", ru = "Принудительно английский текст" },
         tooltip = { en = "Force interface texts to English", ru = "Принудительно отображать тексты на английском" },
         default = false },
         
       { key = "force_rus_locale",
-        label = { en = "Force Russian locale", ru = "Принудительно русский" },
+        label = { en = "Force Russian locale", ru = "Принудительно русский текст" },
         tooltip = { en = "Force interface texts to Russian", ru = "Принудительно отображать тексты на русском" },
         default = false },
         
-      { key = "server_info",
-        label = { en = "Hidden .server info spam for show information as online and uptime", ru = "Скрытый спам .server info для показа инфы об онлайне и аптайме" },
-        tooltip = { en = "Hidden .server info spam for show information as online and uptime", ru = "Скрытый спам .server info для показа инфы об онлайне и аптайме" },
+      { key = "showDayOfWeek",
+        label = { en = "showDayOfWeek", ru = "Показывать день недели" },
+        tooltip = { en = "showDayOfWeek", ru = "Показывать день недели" },
         default = true },
         
+      { key = "showDate",
+        label = { en = "showDate", ru = "Показывать дату" },
+        tooltip = { en = "showDate", ru = "Показывать дату" },
+        default = true },
+        
+      { key = "showTime",
+        label = { en = "showTime", ru = "Показывать время" },
+        tooltip = { en = "showTime", ru = "Показывать время" },
+        default = true },
+        
+      { key = "showMilliseconds",
+        label = { en = "showMilliseconds", ru = "Показывать милисекунды" },
+        tooltip = { en = "showMilliseconds", ru = "Показывать милисекунды.\nПри высокой скорости обновления текста может хорошо жрать память." },
+        default = true },
+        
+      { key = "showServerTime",
+        label = { en = "showServerTime", ru = "Показывать серверное время" },
+        tooltip = { en = "showServerTime", ru = "Показывать серверное время" },
+        default = true },
+        
+      { key = "showZoneInfo",
+        label = { en = "showZoneInfo", ru = "Показывать инфу о зоне" },
+        tooltip = { en = "showZoneInfo", ru = "Показывать инфу о зоне" },
+        default = true },
+        
+      { key = "showFPS",
+        label = { en = "showFPS", ru = "Показывать фпс" },
+        tooltip = { en = "showFPS", ru = "Показывать фпс" },
+        default = true },
+        
+      { key = "showParticles",
+        label = { en = "showParticles", ru = "Показывать плотность частиц" },
+        tooltip = { en = "showParticles", ru = "Показывать плотность частиц" },
+        default = true },
+        
+      { key = "showServerOnline",
+        label = { en = "showServerOnline", ru = "Показывать онлайн сервера из .server info" },
+        tooltip = { en = "showServerOnline", ru = "Показывать онлайн сервера из .server info.\nПри включенной функции может выскакивать системная ошибка в чат когда вызываем .menu/.server info (\"Команда не может быть обработана в текущий момент\")" },
+        default = true },
+        
+      { key = "showWhoOnline",
+        label = { en = "showWhoOnline", ru = "Показывать онлайн сервера из окна \"кто\"" },
+        tooltip = { en = "showWhoOnline", ru = "Показывать онлайн сервера из окна \"кто\"" },
+        default = true },
+        
+      { key = "showParticleDensityBar",
+        label = { en = "Show particle density bar (resize: shift+mouseover scroll on frame)", ru = "Показывать полосу плотности частиц из настроек графики" },
+        tooltip = { en = "Display particle density bar (resize: shift+mouseover scroll on frame)", ru = "Отображать полосу плотности частиц из настроек графики.\nРазмер меняется через SHIFT+прокрутка мышью по фрейму, перетаскивание так же при помощи шифта." },
+        default = false },
+
+      { key = "showLatencyHome",
+        label = { en = "showLatencyHome", ru = "Показывать задержку из тултипа(подсказки) кнопки игрового меню" },
+        tooltip = { en = "showLatencyHome", ru = "Показывать задержку из тултипа(подсказки) кнопки игрового меню" },
+        default = true },
+        
+      { key = "showRTT",
+        label = { en = "showRTT", ru = "Показывать RTT" },
+        tooltip = { en = "RTT (Round-trip time) — a more accurate ping using addon messages (https://wowwiki-archive.fandom.com/wiki/API_SendAddonMessage), updates rapidly; good for spotting real connection issues.", ru = "Показывать RTT.\nRTT (https://ru.wikipedia.org/wiki/Круговая_задержка) - более реальное значение задержки/пинга через отправку самому себе сообщений аддона (https://wowwiki-archive.fandom.com/wiki/API_SendAddonMessage).\nВ отличии от обычной задержки (из тултипа кнопки игрового меню) через эту цифру сразу будет видно если есть проблемы с соединением, значение сразу вырастает, обновляется максимально быстро." },
+        default = true },
+        
+      { key = "showSpellDelay",
+        label = { en = "showSpellDelay", ru = "Показывать время полёта заклинания (флайтайм, количество милисекунд между UNIT_SPELLCAST_SENT и UNIT_SPELLCAST_SUCCEEDED)" },
+        tooltip = { en = "showSpellDelay", ru = "Показывать время полёта заклинания (флайтайм, количество милисекунд между UNIT_SPELLCAST_SENT и UNIT_SPELLCAST_SUCCEEDED)" },
+        default = true },
+        
+      { key = "showServerLatency",
+        label = { en = "showServerUptime", ru = "Показывать задержку из .server info" },
+        tooltip = { en = "showServerUptime", ru = "Показывать задержку из .server info.\nПри включенной функции может выскакивать системная ошибка в чат когда вызываем .menu/.server info (\"Команда не может быть обработана в текущий момент\")" },
+        default = true },
+        
+      { key = "showServerUptime",
+        label = { en = "showServerUptime", ru = "Показывать аптайм сервера" },
+        tooltip = { en = "showServerUptime", ru = "Показывать аптайм сервера.\nПри включенной функции может выскакивать системная ошибка в чат когда вызываем .menu/.server info (\"Команда не может быть обработана в текущий момент\")" },
+        default = true },
+        
+      { key = "indentSpaceCount",
+        label = { en = "indentSpaceCount", ru = "Кол-во пробелов в отступах между сегментами" },
+        tooltip = { en = "indentSpaceCount", ru = "Кол-во пробелов в отступах между сегментами" },
+        default = 4, min = 1, max = 20 },
+        
+      { key = "showMovementSpeed",
+        label = { en = "showMovementSpeed", ru = "Показывать скорость передвижения (%)" },
+        tooltip = { en = "showMovementSpeed", ru = "Показывать скорость передвижения (%)" },
+        default = true },
+        
+      { key = "showAttackPowerOrSpd",
+        label = { en = "showAttackPowerOrSpd", ru = "Показывать силу атаки/заклинаний (ап/спд)" },
+        tooltip = { en = "showAttackPowerOrSpd", ru = "Показывать силу атаки/заклинаний (ап/спд)" },
+        default = true },
+        
+      { key = "showResilience",
+        label = { en = "showResilience", ru = "Показывать устойчивость" },
+        tooltip = { en = "showResilience", ru = "Показывать устойчивость" },
+        default = true },
+        
+      { key = "showParry",
+        label = { en = "showParry", ru = "Показывать парирование (%)" },
+        tooltip = { en = "showParry", ru = "Показывать парирование (%)" },
+        default = true },
+        
+      { key = "showDodge",
+        label = { en = "showDodge", ru = "Показывать уклонение (%)" },
+        tooltip = { en = "showDodge", ru = "Показывать уклонение (%)" },
+        default = false },
+        
+      { key = "showArmor",
+        label = { en = "showArmor", ru = "Показывать броню" },
+        tooltip = { en = "showArmor", ru = "Показывать броню" },
+        default = true },
+        
+      { key = "showCrit",
+        label = { en = "showCrit", ru = "Показывать крит (%)" },
+        tooltip = { en = "showCrit", ru = "Показывать крит (%)" },
+        default = false },
+        
+      { key = "showHaste",
+        label = { en = "showHaste", ru = "Показывать рейтинг скорости" },
+        tooltip = { en = "showHaste", ru = "Показывать рейтинг скорости" },
+        default = false },
+        
+      { key = "showHit",
+        label = { en = "showHit", ru = "Показывать рейтинг меткости" },
+        tooltip = { en = "showHit", ru = "Показывать рейтинг меткости" },
+        default = false },
+        
+      { key = "showPercentSign",
+        label = { en = "showPercentSign", ru = "Показывать знак процента" },
+        tooltip = { en = "showPercentSign", ru = "Показывать знак процента" },
+        default = true },
+        
+      { key = "showBattlegroundStats",
+        label = { en = "Show battleground stats", ru = "Показывать статистику поля боя" },
+        tooltip = { en = "Show basic battleground statistics", ru = "Кол-во игр на бг, победы, винрейт (из данных статистики ачив)" },
+        default = true },
+
+      -- { key = "server_info",
+        -- label = { en = "Hidden .server info spam for show information as online and uptime", ru = "Невидимый спам .server info для получения инфы о задержке, онлайне и аптайме сервера" },
+        -- tooltip = { en = "Hidden .server info spam for show information as online and uptime", ru = "Невидимый спам .server info для получения инфы о задержке, онлайне и аптайме сервера" },
+        -- default = true },
+
       { key = "update_interval_server_info",
         label = { en = "Seconds between .server info spam", ru = "Интервал между отправками .server info в секундах" },
         tooltip = { en = "Seconds between .server info spam", ru = "Интервал между отправками .server info в секундах" },
@@ -350,7 +500,7 @@ do
         
       { key = "seconds_rtt_update_interval",
         label = { en = "RTT update (seconds)", ru = "Интервал обновления RTT в секундах" },
-        tooltip = { en = "Interval to refresh RTT value (seconds)", ru = "Интервал обновления RTT" },
+        tooltip = { en = "Interval to refresh RTT value (seconds)", ru = "Интервал обновления RTT в секундах" },
         default = 0.05, min = 0.01, max = 10 },
         
       { key = "seconds_send_addon_message_interval",
@@ -364,64 +514,9 @@ do
         default = true },
         
       { key = "hide_SYSMSG_SPAM_ERROR",
-        label = { en = "Hide SYSMSG_SPAM_ERROR", ru = "Скрывать ошибку в чате от спама сервер инфо" },
-        tooltip = { en = "Hide SYSMSG_SPAM_ERROR", ru = "Скрывать ошибку в чате от спама сервер инфо" },
+        label = { en = "Hide SYSMSG_SPAM_ERROR", ru = "Скрывать системную ошибку в чате от спама .server info аддоном" },
+        tooltip = { en = "Hide SYSMSG_SPAM_ERROR", ru = "Скрывать системную ошибку в чате от спама .server info аддоном" },
         default = false },
-        
-      { key = "indentSpaceCount",
-        label = { en = "indentSpaceCount", ru = "Отступ кол-во пробелов" },
-        tooltip = { en = "indentSpaceCount", ru = "Отступ кол-во пробелов" },
-        default = 4, min = 1, max = 20 },
-        
-      { key = "showMovementSpeed",
-        label = { en = "showMovementSpeed", ru = "Показывать скорость передвижения" },
-        tooltip = { en = "showMovementSpeed", ru = "Показывать скорость передвижения" },
-        default = true },
-        
-      { key = "showAttackPowerOrSpd",
-        label = { en = "showAttackPowerOrSpd", ru = "Показывать ап/спд" },
-        tooltip = { en = "showAttackPowerOrSpd", ru = "Показывать ап/спд" },
-        default = true },
-        
-      { key = "showResilience",
-        label = { en = "showResilience", ru = "Показывать устойчивость" },
-        tooltip = { en = "showResilience", ru = "Показывать устойчивость" },
-        default = true },
-        
-      { key = "showParry",
-        label = { en = "showParry", ru = "Показывать парирование" },
-        tooltip = { en = "showParry", ru = "Показывать парирование" },
-        default = true },
-        
-      { key = "showDodge",
-        label = { en = "showDodge", ru = "Показывать уклонение" },
-        tooltip = { en = "showDodge", ru = "Показывать уклонение" },
-        default = false },
-        
-      { key = "showArmor",
-        label = { en = "showArmor", ru = "Показывать броню" },
-        tooltip = { en = "showArmor", ru = "Показывать броню" },
-        default = true },
-        
-      { key = "showCrit",
-        label = { en = "showCrit", ru = "Показывать крит" },
-        tooltip = { en = "showCrit", ru = "Показывать крит" },
-        default = false },
-        
-      { key = "showHaste",
-        label = { en = "showHaste", ru = "Показывать рейтинг скорости" },
-        tooltip = { en = "showHaste", ru = "Показывать рейтинг скорости" },
-        default = false },
-        
-      { key = "showHit",
-        label = { en = "showHit", ru = "Показывать рейтинг меткости" },
-        tooltip = { en = "showHit", ru = "Показывать рейтинг меткости" },
-        default = false },
-        
-      { key = "showPercentSign",
-        label = { en = "showPercentSign", ru = "Показывать знак процента" },
-        tooltip = { en = "showPercentSign", ru = "Показывать знак процента" },
-        default = true },
     }
     
     function cfgPanel.VisualUpdate()
@@ -463,53 +558,20 @@ do
 
       PERCENT = cfg.showPercentSign and "%" or ""
       
-      INDENT = cfg.indentSpaceCount and string.rep(" ", cfg.indentSpaceCount) or INDENT
+      INDENT = cfg.indentSpaceCount and strep(" ", cfg.indentSpaceCount) or INDENT
       
-      L = GetLocale()=="ruRU" and cfg.force_en_locale and "enUS" or cfg.force_rus_locale and "ruRU" or GetLocale() -- test shit
-    
-      ADDON_NAME_LOCALE = L=="ruRU" and GetAddOnMetadata(ADDON_NAME,"Title-ruRU") or GetAddOnMetadata(ADDON_NAME,"Title") or ADDON_NAME
-      ADDON_NAME_LOCALE_SHORT = L=="ruRU" and GetAddOnMetadata(ADDON_NAME,"TitleS-ruRU") or GetAddOnMetadata(ADDON_NAME,"TitleShort") or ADDON_NAME_LOCALE
-      ADDON_NOTES = L=="ruRU" and GetAddOnMetadata(ADDON_NAME,"Notes-ruRU") or GetAddOnMetadata(ADDON_NAME,"Notes") or UNKNOWN
-      ADDON_VERSION = GetAddOnMetadata(ADDON_NAME,"Version") or UNKNOWN
-      
-      PARTICLES = L=="ruRU" and "Частицы" or "PARTICLES"
-      SERV_DELAY = L=="ruRU" and "Серв" or "SERV"
-      GAMES = L=="ruRU" and "Игр" or "GAMES"
-      WINS = L=="ruRU" and "Побед" or "WINS"
-      WINRATE = L=="ruRU" and "Винрейт" or "WR"
-      ATTACK_POWER = L=="ruRU" and "Ап" or "AP"
-      SPELL_POWER = L=="ruRU" and "Спд" or "SPD"
-      RES = L=="ruRU" and "Уст" or "RSL"
-      CRIT = L=="ruRU" and "Кри" or "CRT"
-      HASTE = L=="ruRU" and "Ско" or "HST"
-      HIT = L=="ruRU" and "Мет" or "HIT"
-      MOVE_SPEED = L=="ruRU" and "Движ" or "MOV"
-      TO_RES = L=="ruRU" and "До реса" or "RES"
-      BY_CORPSE = L=="ruRU" and "по телу" or "CORPSE"
-      TO_RES_BY_CORPSE = L=="ruRU" and "Рес по телу" or "RES CORPSE"
-      ENEMIES = L=="ruRU" and "врагов реснется" or "DEAD ENMS"
-      READY = L=="ruRU" and "готов" or "ready"
-      RATING = L=="ruRU" and "БГ очки" or "PTS"
-      MAP = L=="ruRU" and "Карта" or "MAP"
-      TIME = L=="ruRU" and "Время" or "TIME"
-      PLWHO = L=="ruRU" and "Онлайн(кто)" or "Players(WHO)"
-      PLSRV = L=="ruRU" and "Онлайн(серв)" or "Players(SERV)"
-      PVPINST = L=="ruRU" and "БГ длится" or "PVPINST"
-      UPTIME = L=="ruRU" and "Аптайм" or "UPT"
-      PVPFLAG = --[[L=="ruRU" and "ПвП" or]] "PvP"
-      REALM = L=="ruRU" and "Серв" or "REALM"
-      ARMOR = L=="ruRU" and "Бро" or "ARM"
-      PARRY = L=="ruRU" and "Пар" or "PAR"
-      DODGE = L=="ruRU" and "Укл" or "DOD"
-      SPELL = L=="ruRU" and "Закл" or "SPELL"
-      INCORRECT_VALUE = L=="ruRU" and "Некоректное значение" or "Incorrect value"
-      
+      ns.ForceUpdateLocale()
       ns.updateZoneAndRaidInfo()
       statsInfoString = ns.GetStatsText()
       bgInfoString = ns.GetBgInfoText()
       
+      textFrame:SetFrameLevel(10)
+      particleDensityFrame:SetFrameLevel(10)
+      
       cfgPanel:Hide()
       cfgPanel:Show()
+      
+      textFrame.update(true, textFrame)
     end
     
     function cfgPanel.CreateMenu(parent, key, labelText, tooltip, y, def)
@@ -800,42 +862,49 @@ do
       cfgPanel.VisualUpdate()
       
       DelayedCall(0.1, function()
-        print(ADDON_NAME_LOCALE, cfgPanel.L({ en = "loaded", ru = "загружен" })..".", cfgPanel.MakeChatLink(cfgPanel.L({ en = "Settings", ru = "Настройки" }), "Settings"))
+        print(ADDON_NAME_LOCALE, Localise({ en = "loaded", ru = "загружен" })..".", cfgPanel.MakeChatLink(Localise({ en = "Settings", ru = "Настройки" }), "Settings"))
       end)
       
       return cfg
     end
     
     function cfgPanel.CreateOptionsUI()
-      local y, wasCheckbox, wasEditbox = -8
+      local y, lastOptionType = -8
       
       for _, opt in ipairs(cfgPanel.options) do
         local key = opt.key
-        local label = cfgPanel.L(opt.label) or key
-        local tip = cfgPanel.L(opt.tooltip)
+        local label = Localise(opt.label) or key
+        local tip = Localise(opt.tooltip)
         local def = opt.default
+        local type = type(def)
 
-        if type(def) == "table" then
-          y = y + ROW_HEIGHT 
+        if type == "table" then
+          if lastOptionType == "table" then
+            y = y + ROW_HEIGHT + 2
+          else
+            y = y + ROW_HEIGHT
+          end
           cfgPanel.CreateMenu(cfgPanel, key, label, tip, y, def)
-        elseif type(def) == "boolean" then
-          if wasEditbox then
-            y = y + ROW_HEIGHT - 2
+        elseif type == "boolean" then
+          if lastOptionType == "table" then
+            y = y + ROW_HEIGHT + 2
+          elseif lastOptionType == "number" or lastOptionType == "string" then
+            y = y + ROW_HEIGHT - 1
           else
             y = y + ROW_HEIGHT
           end
           cfgPanel.CreateCheckbox(cfgPanel, key, label, tip, y, def)
-          wasCheckbox, wasEditbox = true, nil
-        elseif type(def) == "number" or type(def) == "string" then
-          if wasCheckbox then
+        elseif type == "number" or type == "string" then
+          if lastOptionType == "boolean" then
             y = y + ROW_HEIGHT + 4
           else
             y = y + ROW_HEIGHT + 2
           end
-          local isNum = (type(def) == "number" and opt.min and opt.max)
+          local isNum = (type == "number" and opt.min and opt.max)
           cfgPanel.CreateEditBox(cfgPanel, key, label, tip, y, isNum, opt.min, opt.max, def)
-          wasCheckbox, wasEditbox = nil, true
         end
+        
+        lastOptionType = type
       end
 
       -- Reset to defaults button
@@ -843,8 +912,16 @@ do
       local reset = CreateFrame("Button", ADDON_NAME.."_ResetBtn", cfgPanel, "UIPanelButtonTemplate")
       reset:SetSize(140, 22)
       reset:SetPoint("RIGHT", titleTip, "RIGHT", 155, 0)
-      reset:SetText(cfgPanel.L({ en = "Reset to defaults", ru = "Сбросить к умолчаниям" }))
-      reset:SetScript("OnClick", function()
+      reset:SetText(Localise({ en = "Reset to defaults", ru = "Сбросить к умолчаниям" }))
+      reset:SetScript("OnClick", function(self)
+        if resetCount == 0 then
+          DelayedCall(5, function()
+            resetCount = 0
+            if GameTooltip:GetOwner() == self and GameTooltip:IsShown() then
+              GameTooltip:SetText(Localise({ en = "To reset, press 5 times.", ru = "Чтобы выполнить сброс нажать быстро 5 раз." }))
+            end
+          end)
+        end
         resetCount = resetCount +1
         if resetCount >= 5 then
           resetCount = 0
@@ -854,24 +931,25 @@ do
           cfgPanel.VisualUpdate()
           UIFrameFlashStop(cfgPanel)
           UIFrameFlash(cfgPanel, 1.5, 0.5, 2, true, 2, 0)
-          GameTooltip:SetText(cfgPanel.L({ en = "The config reset was successful.", ru = "Сброс конфига успешно выполнен." }))
+          GameTooltip:SetText(Localise({ en = "The config reset was successful.", ru = "Сброс конфига успешно выполнен." }))
         else
           local needCount = 5 - resetCount
-          GameTooltip:SetText(cfgPanel.L({ en = "To reset, press 5 times.|r\n"..(5-resetCount).." times remaining.", ru = "Чтобы выполнить сброс нажать 5 раз.|r\nОсталось "..(5-resetCount).." раз(а)." }))
+          GameTooltip:SetText(Localise({ en = "To reset, press 5 times.|r\n"..(5-resetCount).." times remaining.", ru = "Чтобы выполнить сброс нажать быстро 5 раз.|r\nОсталось "..(5-resetCount).." раз(а)." }))
         end
       end)
       
       reset:SetScript("OnEnter", function(self) 
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         if resetCount == 0 then
-          GameTooltip:SetText(cfgPanel.L({ en = "To reset, press 5 times.", ru = "Чтобы выполнить сброс нажать 5 раз." }))
+          GameTooltip:SetText(Localise({ en = "To reset, press 5 times.", ru = "Чтобы выполнить сброс нажать быстро 5 раз." }))
         else
-          GameTooltip:SetText(cfgPanel.L({ en = "To reset, press 5 times.|r\n"..(5-resetCount).." times remaining.", ru = "Чтобы выполнить сброс нажать 5 раз.|r\nОсталось "..(5-resetCount).." раз(а)." }))
+          GameTooltip:SetText(Localise({ en = "To reset, press 5 times.|r\n"..(5-resetCount).." times remaining.", ru = "Чтобы выполнить сброс нажать быстро 5 раз.|r\nОсталось "..(5-resetCount).." раз(а)." }))
         end
         GameTooltip:Show() 
       end)
 
       reset:SetScript("OnLeave", function(self) 
+        --resetCount = 0
         GameTooltip:Hide() 
       end)
     end
@@ -915,11 +993,15 @@ do
     end
   end
   
-  -- серверное время
+  -- Серверное время (Realm)
   local GameTime
   do
-    local GetGameTime, GetTime = GetGameTime, GetTime
-
+    local format = string.format
+    local floor = math.floor
+    local date = date
+    local GetTime = GetTime
+    local GetGameTime = GetGameTime
+  
     GameTime = {
       Get = function(self)
         if self.LastMinuteTimer == nil then
@@ -928,37 +1010,107 @@ do
         end
         
         local s = GetTime() - self.LastMinuteTimer
-        local ms = floor((s % 1) * 1000 + 0.5)
-
         if s > 59.999 then
           s = 59.999
         end
+        local ms = floor((s % 1) * 1000 + 0.5)
         
-        return self.LastGameHour, self.LastGameMinute, s, ms
+        return self.LastGameHour, self.LastGameMinute, floor(s), ms
       end,
 
-      OnUpdate = function(self)
+      -- Форматирование серверного времени с учетом опций
+      GetFormatted = function(self, showMs)
+        local h, m, s, ms = self:Get()
+        if showMs and s and ms then
+          return format("%02d:%02d:%02d.%03d", h, m, s, ms)
+        else
+          return format("%02d:%02d", h, m)
+        end
+      end,
+
+      OnUpdate = function(self, elapsed)
+        self.tick = (self.tick or 0) + elapsed
+        if self.tick < 0.5 then return end
+        self.tick = 0
+
         local h, m = GetGameTime()
         if self.LastGameMinute == nil then
-          self.LastGameHour = h
-          self.LastGameMinute = m
+          self.LastGameHour, self.LastGameMinute = h, m
           return
         end
-        if self.LastGameMinute == m then
-          return
+        
+        if self.LastGameMinute ~= m then
+          self.LastGameHour, self.LastGameMinute = h, m
+          self.LastMinuteTimer = GetTime()
         end
-        self.LastGameHour = h
-        self.LastGameMinute = m
-        self.LastMinuteTimer = GetTime()
       end,
 
       Initialize = function(self)
         self.Frame = CreateFrame("Frame")
-        self.Frame:SetScript("OnUpdate", function() self:OnUpdate() end)
+        self.Frame:SetScript("OnUpdate", function(_, elapsed) self:OnUpdate(elapsed) end)
       end
     }
-
     GameTime:Initialize()
+  end
+
+  -- Локальное время (Local)
+  local TimeFormatter = {}
+  do
+    local format = string.format
+    local floor = math.floor
+    local date = date
+    local GetTime = GetTime
+    local tostring = tostring
+
+    local daysRU = {
+      ["0"] = "Воскресенье", ["1"] = "Понедельник", ["2"] = "Вторник",
+      ["3"] = "Среда", ["4"] = "Четверг", ["5"] = "Пятница", ["6"] = "Суббота"
+    }
+
+    TimeFormatter.cachedSeconds = -1
+    TimeFormatter.cachedDateString = ""
+    TimeFormatter.lastSettingsMask = "" -- Для сброса кэша при смене настроек
+
+    function TimeFormatter:GetFormattedTime(showDate, showDayOfWeek, showMs)
+      if not self.timeOffset then
+        self.timeOffset = time() - floor(GetTime())
+      end
+
+      self.now = GetTime()
+      self.seconds = floor(self.now)
+      
+      -- Генерируем маску настроек, чтобы понять, менялись ли они
+      self.settingsMask = format("%s%s", tostring(showDate), tostring(showDayOfWeek))
+
+      -- Обновляем кэш строки (раз в секунду или при смене настроек)
+      if self.seconds ~= self.cachedSeconds or self.settingsMask ~= self.lastSettingsMask then
+        self.cachedSeconds = self.seconds
+        self.lastSettingsMask = self.settingsMask
+        
+        self.fullTime = self.timeOffset + self.seconds
+        self.timePart = date("%H:%M:%S", self.fullTime)
+        self.datePart = showDate and date("%d.%m.%Y  ", self.fullTime) or ""
+        
+        self.dayPart = ""
+        if showDayOfWeek then
+          if L == "ruRU" then
+            self.dayPart = daysRU[date("%w", self.fullTime)] .. "  "
+          else
+            self.dayPart = date("%A  ", self.fullTime)
+          end
+        end
+        
+        self.cachedDateString = self.dayPart .. self.datePart .. self.timePart
+      end
+
+      -- Миллисекунды добавляем всегда «на лету», так как они меняются каждый кадр
+      if showMs then
+        local ms = floor((self.now - self.seconds) * 1000)
+        return format("%s.%03d", self.cachedDateString, ms)
+      else
+        return self.cachedDateString
+      end
+    end
   end
   
   FriendsFrame:UnregisterEvent("WHO_LIST_UPDATE") 
@@ -1000,49 +1152,6 @@ do
       return format("%.1ds", seconds)
     end
   end
-  
-  -- милисекунды
-  local TimeFormatter = {}
-  
-  local daysRU = {
-    ["0"] = "Воскресенье",
-    ["1"] = "Понедельник",
-    ["2"] = "Вторник",
-    ["3"] = "Среда",
-    ["4"] = "Четверг",
-    ["5"] = "Пятница",
-    ["6"] = "Суббота"
-  }
-
-  -- local daysRU = {
-    -- ["0"] = "ВС",
-    -- ["1"] = "ПН",
-    -- ["2"] = "ВТ",
-    -- ["3"] = "СР",
-    -- ["4"] = "ЧТ",
-    -- ["5"] = "ПТ",
-    -- ["6"] = "СБ"
-  -- } 
-  
-  function TimeFormatter:GetFormattedTime()
-    if not self.timeOffset then
-      self.timeOffset = time() - floor(GetTime())
-    end
-
-    local now = GetTime()
-    local seconds = floor(now)
-    local milliseconds = floor((now - seconds) * 1000)
-    local fullTime = self.timeOffset + seconds
-    
-    if L == "ruRU" then
-      local day = date("%w", fullTime) -- Получаем номер дня недели (0-6, где 0 - воскресенье)
-      return format("%s  %s.%03d", daysRU[day], date("%d.%m.%Y  %H:%M:%S", fullTime), milliseconds)
-    end
-    
-    return format("%s.%03d", date("%A  %d.%m.%Y  %H:%M:%S", fullTime), milliseconds)
-    --return date("%A  %d.%m.%Y  %H:%M:%S", fullTime) .. format(".%03d", milliseconds)
-  end
-  _G.GetFormattedTime = TimeFormatter.GetFormattedTime 
    
   -- Создаем статус-бар
   do
@@ -1344,58 +1453,15 @@ do
       wipe(UNIT_SPELLCAST_SUCCEEDED)
     end
     ns.updateZoneAndRaidInfo = updateZoneAndRaidInfo
-
-    --[[
-    local function GetRezTimerInfo()
-      local text, CorpseRecoveryDelay = ""
-     
-      if InBg then
-        local secondsToRes = RezTimer_Data and RezTimer_Data.cd
-        
-        if secondsToRes then
-          text = text .. TO_RES .. ": |cffff8822" .. secondsToRes .. "|r"
-          if UnitIsDeadOrGhost("player") then
-            CorpseRecoveryDelay = GetCorpseRecoveryDelay()
-            if CorpseRecoveryDelay > 0 then
-              text = text .. INDENT .. BY_CORPSE .. ": |cffff8822" .. formatTime(CorpseRecoveryDelay) .. "|r"
-            else
-              text = text .. INDENT .. BY_CORPSE .. ": |cff33ff33" .. READY .. "|r"
-            end
-          end
-        else
-          if UnitIsDeadOrGhost("player") then
-            CorpseRecoveryDelay = GetCorpseRecoveryDelay()
-            if CorpseRecoveryDelay > 0 then
-              text = text .. TO_RES_BY_CORPSE .. ": |cffff8822" .. formatTime(CorpseRecoveryDelay) .. "|r"
-            else
-              text = text .. TO_RES_BY_CORPSE .. ": |cff33ff33" .. READY .. "|r"
-            end
-          end
-        end
-        
-        if RezTimer_Data and RezTimer_Data.counter then
-          text = text .. INDENT ..ENEMIES .. ": |cffff6622" .. RezTimer_Data.counter .. "|r"
-        end
-      elseif UnitIsDeadOrGhost("player") then
-        CorpseRecoveryDelay = GetCorpseRecoveryDelay()
-        if CorpseRecoveryDelay > 0 then
-          text = text .. TO_RES_BY_CORPSE .. ": |cffff8822" .. formatTime(CorpseRecoveryDelay) .. "|r"
-        else
-          text = text .. TO_RES_BY_CORPSE .. ": |cff33ff33" .. READY .. "|r"
-        end
-      end
-      
-      return text
-    end
-    ]]
     
     local function GetRezTimerInfo()
       local parts = {}
       local isDead = UnitIsDeadOrGhost("player")
       local recoveryDelay = isDead and GetCorpseRecoveryDelay() or 0
+      local BattlefieldInstanceRunTime = GetBattlefieldInstanceRunTime()
       
       -- 1. Таймер БГ (если есть данные)
-      local bgCD = InBg and RezTimer_Data and RezTimer_Data.cd
+      local bgCD = InBg and BattlefieldInstanceRunTime > 120000 and RezTimer_Data and RezTimer_Data.cd
       if bgCD then
         tinsert(parts, format("%s: |cffff8822%s|r", TO_RES, bgCD))
       end
@@ -1411,7 +1477,7 @@ do
       end
       
       -- 3. Счетчик врагов
-      if InBg and RezTimer_Data and RezTimer_Data.counter then
+      if InBg and BattlefieldInstanceRunTime > 120000 and RezTimer_Data and RezTimer_Data.counter and GetBattlefieldInstanceRunTime() > 120000 then
         tinsert(parts, format("%s: |cffff6622%d|r", ENEMIES, RezTimer_Data.counter))
       end
       
@@ -1445,154 +1511,13 @@ do
       }
 
       if data.rating then
-        table.insert(parts, format("%s: %d", RATING, data.rating))
+        tinsert(parts, format("%s: %d", RATING, data.rating))
       end
 
-      return table.concat(parts, INDENT)
+      return tconcat(parts, INDENT)
     end
     ns.GetBgInfoText = GetBgInfoText
     
-    --[[
-    local function GetBgInfoText()
-      local bgstats = bg_statistics and bg_statistics[playerGUID]
-      
-      local winsTest, bgPts, gamesTest, winrateTest, wrColorTest, gamesTtl, winsTtl, winRateTtl, wrColorTtl
-      
-      if bgstats then
-        bgPts = bgstats.rating or 0
-        winsTest = bgstats.wins or 0
-        gamesTest = bgstats.games or 0
-        
-        if gamesTest > 0 then
-          winrateTest = gamesTest > 0 and truncate(winsTest / gamesTest *100) or 0
-          wrColorTest = gamesTest > 0 and f.RGBGradient(1 - (winsTest / gamesTest *100) / 100) or "999999"
-          winrateTest = "|ccc" .. wrColorTest .. winrateTest .. "|r"
-        end
-      else
-        gamesTtl = tonumber(GetStatistic(ACHIV_CATEGORY_ID_BATTLEGROUNDS_PLAYED)) or 0
-        winsTtl = tonumber(GetStatistic(ACHIV_CATEGORY_ID_BATTLEGROUNDS_WON)) or 0
-        winRateTtl = gamesTtl > 0 and truncate(winsTtl / gamesTtl *100) or 0
-        wrColorTtl = gamesTtl > 0 and f.RGBGradient(1 - (winsTtl / gamesTtl *100) / 100) or "999999"
-      end
-
-      local winsStr = bgstats and 
-        "" .. WINS .. ": |cccf1f1a1" .. winsTest .. "|r" or 
-        winsTtl and "" .. WINS .. ": |cccf1f1a1" .. winsTtl .. "|r"
-      
-      local gamesStr = bgstats and 
-        "" .. GAMES .. ": |cccf1f1a1" .. gamesTest .. "|r" or
-        gamesTtl and "" .. GAMES .. ": |cccf1f1a1" .. gamesTtl .. "|r"
-      
-      local winRateStr = winrateTest and 
-        "" .. WINRATE .. ": |ccc" .. wrColorTest .. winrateTest .. "|r" or
-        winRateTtl and "" .. WINRATE .. ": |ccc" .. wrColorTtl .. winRateTtl .."|r"
-      
-      local text = gamesStr .. INDENT .. winsStr
-      text = winRateStr and text .. INDENT .. winRateStr or text
-      
-      if bgPts then
-        text = text .. INDENT .. RATING .. ": " .. bgPts
-      end
-      
-      return text
-    end
-    ]]
-
-    --[[
-    local function GetStatsText()
-      local text = ""
-
-      local spdOrAp, crit, haste, hexcolor, hexcolorCrit, hexcolorHaste, hit, hexHitColor, bonusDamage, _crit
-
-      if showSpellPower then
-        --spdOrAp = GetSpellBonusDamage(6) -- 6=shadow
-      
-        -- Start at 2 to skip physical damage
-        spdOrAp = GetSpellBonusDamage(2)
-        crit = GetSpellCritChance(2)
-        
-        for i = 3, MAX_SPELL_SCHOOLS do
-          bonusDamage = GetSpellBonusDamage(i)
-          spdOrAp = min(spdOrAp, bonusDamage)
-        end
-        
-        for i = 3, MAX_SPELL_SCHOOLS do
-          _crit = GetSpellCritChance(i)
-          crit = min(crit, _crit)
-        end
-        
-        haste = GetCombatRating(CR_HASTE_SPELL) --* 0.03049802371
-        hit = GetCombatRating(CR_HIT_SPELL) --/ 32.7868852459
-      elseif showAttackPower then
-        local base, posBuff, negBuff = UnitAttackPower("player")
-        spdOrAp = base + posBuff - negBuff -- value=current attack power
-        crit = GetCritChance()
-        haste = GetCombatRating(CR_HASTE_MELEE) --* 0.03049802371
-        hit = GetCombatRating(CR_HIT_MELEE) --/ 32.7868852459
-      elseif isHunter then
-        local base, posBuff, negBuff = UnitRangedAttackPower("player")
-        spdOrAp = base + posBuff - negBuff -- value=current attack power
-        crit = GetRangedCritChance()
-        haste = GetCombatRating(CR_HASTE_RANGED) --* 0.03049802371
-        hit = GetCombatRating(CR_HIT_RANGED) --/ 32.7868852459
-      end
-
-      if showAttackPower or isHunter then
-        --hexcolor = f.RGBGradient(spdOrAp / 9000)
-        hexcolor = f.RGBGradient(1 - spdOrAp / 12000)
-        --hexcolorHaste = f.RGBGradient(157 / 1000)
-        hexcolorHaste = haste == 0 and "999999" or "ffffff"
-        hexHitColor = f.RGBGradient(1 - hit / 10)
-      elseif showSpellPower then
-        hexcolor = f.RGBGradient(1 - spdOrAp / 3500)
-        --hexcolorHaste = f.RGBGradient(haste / 2000)
-        hexcolorHaste = f.RGBGradient(1 - haste / 50)
-        hexHitColor = f.RGBGradient(1 - hit / 10)
-      end
-      
-      hexcolorCrit = f.RGBGradient(1 - crit / 50)
-      
-      local res = GetCombatRating(16)
-      local resColor = f.RGBGradient(1 - tonumber(res) / 1414)
-
-      if showAttackPower or isHunter then 
-        text = text .. ATTACK_POWER
-      elseif showSpellPower then 
-        text = text .. SPELL_POWER  
-      end
-      
-      local base, effectiveArmor, armor, posBuff, negBuff = UnitArmor("player")
-      local armorColor
-      if posBuff ~= 0 then 
-        armorColor = "00f100"
-      elseif negBuff ~= 0 then
-        armorColor = "f10000"
-      else
-        armorColor = "f1f1a1"
-      end
-
-      if InDungeon then 
-        if showAttackPower then
-          text = text .. ": |cff" .. hexcolor .. spdOrAp .. "|r" .. INDENT .. CRIT .. ": |cff" .. hexcolorCrit .. truncate(crit) .. "|r" .. INDENT .. HASTE .. ": |cff" .. hexcolorHaste .. truncate(haste) .. "|r" .. INDENT .. HIT .. ": |cff" .. hexHitColor .. truncate(hit) .. "|r" .. INDENT .. ARMOR .. ": |cff" .. armorColor .. armor .. "|r"
-        elseif showSpellPower then
-          text = text .. ": |cff" .. hexcolor .. spdOrAp .. "|r" .. INDENT .. CRIT .. ": |cff" .. hexcolorCrit .. truncate(crit) .. "|r" .. INDENT .. HASTE .. ": |cff" .. hexcolorHaste .. truncate(haste) .. "|r" .. INDENT .. HIT .. ": |cff" .. hexHitColor .. truncate(hit) .. "|r"
-        else
-          text = text .. ": |cff" ..hexcolor .. spdOrAp .."|r" .. INDENT .. CRIT .. ": |cff" ..hexcolorCrit .. format("%.0f", crit) .. "|r" .. INDENT .. HASTE .. ": |cff" .. hexcolorHaste .. "" ..truncate(haste) .. "|r" .. INDENT .. HIT.. ": |cff" .. hexHitColor .. truncate(hit) .. "|r" .. INDENT .. ARMOR..": |cff" .. armorColor .. armor.."|r"
-        end
-      else
-        if showAttackPower then 
-          text = text .. ": |cff" .. hexcolor .. spdOrAp .. "|r" .. INDENT .. RES .. ": |cff" .. resColor .. res .. "|r" .. INDENT .. PARRY .. ": |cfff1f1a1" .. truncate(GetParryChance(),1) .. "|r" .. INDENT .. ARMOR .. ": |cff" .. armorColor ..  armor .. "|r"
-        elseif showSpellPower then
-          text = text .. ": |cff" ..hexcolor .."" ..spdOrAp .. "|r" .. INDENT .. RES .. ": |cff" .. resColor .. res .. "|r" .. INDENT .. CRIT..": |cff" ..hexcolorCrit .. truncate(crit) .. "|r" .. INDENT .. HASTE .. ": |cff" .. hexcolorHaste .. truncate(haste) .. "|r" .. INDENT .. HIT .. ": |cff" .. hexHitColor .. ""..truncate(hit).."|r"
-        else
-          text = text .. ": |cff" .. hexcolor .. spdOrAp .. "|r" ..INDENT .. RES .. ": |cff" .. resColor .. res .. "|r" ..INDENT .. CRIT .. ": |cff" .. hexcolorCrit .. format("%.0f", crit) .. "|r" .. INDENT .. HASTE .. ": |cff" .. hexcolorHaste .. truncate(haste) .. "|r" .. INDENT .. HIT..": |cff" .. hexHitColor .. truncate(hit).. "|r" ..INDENT .. ARMOR .. ": |cff" .. armorColor .. armor .. "|r"
-        end
-      end
-      
-      return text
-    end
-    ]]
-
     function ns.GetStatsText()
       -- 1. Определяем базовые значения
       local spdOrAp, crit, haste, hit = 0, 0, 0, 0
@@ -1811,8 +1736,10 @@ do
         ) and ... == "player"
         then
           statsInfoString = ns.GetStatsText()
+          textFrame.update(true, textFrame)
       elseif event == "PLAYER_DAMAGE_DONE_MODS" then
         statsInfoString = ns.GetStatsText()
+        textFrame.update(true, textFrame)
       elseif event == "ADDON_LOADED" then
         if ... == "RezTimer" then
           RezTimer_Data = _G.RezTimer_Data
@@ -1827,6 +1754,7 @@ do
         end
       elseif event == "UPDATE_BATTLEFIELD_STATUS" then
         bgInfoString = GetBgInfoText()
+        textFrame.update(true, textFrame)
       elseif event == "MODIFIER_STATE_CHANGED" then
         local key, state = ...
         if state == 1 then
@@ -1849,7 +1777,9 @@ do
         playerGUID = UnitGUID("player")
         f:SetFrameLevel(10)
         textFrame:SetFrameLevel(10)
+        DelayedCall(4, function() textFrame:SetScript("OnUpdate", function(...) textFrame.update(nil, ...) end) end)
       elseif event == "PLAYER_ENTERING_WORLD" then
+        textFrame.needWaitServerInfo = nil
         updateZoneAndRaidInfo()
         SetWhoToUI(1)
         was_SYSMSG_SPAM_ERROR_error = nil
@@ -1861,7 +1791,10 @@ do
         NumWhoResults = "-"
         ns.responceTime = "-"
         SpellUseDelay = "-"
+        --textFrame.update(true, textFrame)
+        --textFrame:SetScript("OnUpdate", function(...) textFrame.update(nil, ...) end)
       elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "PLAYER_TALENT_UPDATE" then
+        --print(event)
         updateZoneAndRaidInfo()
       elseif event == "CHAT_MSG_SYSTEM" then
         local msg = ...
@@ -1907,12 +1840,14 @@ do
         if unit == "player" and not UNIT_SPELLCAST_SENT[spell] then
           --print(event, unit, spell)
           UNIT_SPELLCAST_SENT[spell] = GetTime()
+          textFrame.update(true, textFrame)
         end
       elseif event == "UNIT_SPELLCAST_SUCCEEDED" or event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_FAILED" then
         local unit, spell = ...
         if unit == "player" and UNIT_SPELLCAST_SENT[spell] and not UNIT_SPELLCAST_SUCCEEDED[spell] then
           --print(event, unit, spell)
           UNIT_SPELLCAST_SUCCEEDED[spell] = GetTime()
+          textFrame.update(true, textFrame)
         end
       elseif event == "WHO_LIST_UPDATE" then
         NumWhoResults = select(2, GetNumWhoResults())
@@ -1963,33 +1898,44 @@ do
       return floor(current + 0.5)
     end
     
-    textFrame.servInfoTime, textFrame.t = 0, 0
-    
-    textFrame:SetScript("OnUpdate", function(self, elapsed)
-      self.t = self.t + elapsed
-      self.servInfoTime = self.servInfoTime + elapsed
-      --self.servInfoTime = self.servInfoTime and self.servInfoTime + cfg.updateIntervalGlobal
-      --print(self.t)
-      if self.t < cfg.updateIntervalGlobal then return end
-      self.t = self.t - cfg.updateIntervalGlobal
+    textFrame.servInfoTime, textFrame.t, textFrame.SendWhoTime = 0, 0, 0
+    local finalLines, row = {}, {}
+
+    function textFrame.update(force, self, elapsed)
+      if self.updating then return end
+      --print(self, elapsed, force)
+      self.updating = true
+      
+      self.t = self.t + (elapsed or 0)
+      self.servInfoTime = self.servInfoTime + (elapsed or 0)
+      self.SendWhoTime = self.SendWhoTime + (elapsed or 0)
+
+      if not force and self.t < cfg.updateIntervalGlobal then 
+        self.updating = nil
+        return 
+      end
+      
+      --print("update",force)
+      
+      self.t = self.t - (elapsed ~= nil and cfg.updateIntervalGlobal or 0)
+      --self.t = 0
 
       local UPDATE_INTERVAL_SERVER_INFO = cfg.update_interval_server_info or UPDATE_INTERVAL_SERVER_INFO
       
-      if cfg.server_info and not self.needWaitServerInfo and self.servInfoTime > UPDATE_INTERVAL_SERVER_INFO then
-        --print("server info",self.servInfoTime)
+      if --[[cfg.server_info and]] not self.needWaitServerInfo and self.servInfoTime > UPDATE_INTERVAL_SERVER_INFO and (cfg.showServerLatency or cfg.showServerLatency or cfg.showServerUptime) then
         self.needWaitServerInfo = true
         self.servInfoTime = 0
         SendChatMessage(".server info", "guild")
-        if not (WhoFrameEditBox:IsVisible() and WhoFrameEditBox:GetText() ~= "") and not IsShiftKeyDown() then
-          SendWho("")
-        end
       end
-
-      --print(self.t)
+      
+      if cfg.showWhoOnline and self.SendWhoTime > 5 and not (WhoFrameEditBox:IsVisible() and WhoFrameEditBox:GetText() ~= "") and not IsShiftKeyDown() then
+        self.SendWhoTime = 0
+        SendWho("")
+      end
 
       -- === ПОДГОТОВКА ДАННЫХ ===
       
-      -- Цвета и значения (используем кэш и сглаживание)
+      -- Цвета и значения
       local fps = GetFramerate()
       local fpsColor = f.GetCachedColor("fps", fps, 60)
       
@@ -2008,7 +1954,6 @@ do
       -- Частицы
       local particleDensity = tonumber(GetCVar("particleDensity")) * 100
       local p_perc = particleDensity / 100
-      -- Упрощенная логика цвета частиц (без создания лишних переменных r,g,b)
       local p_r = (p_perc < 0.5) and 1 or (2 - p_perc * 2)
       local p_g = (p_perc < 0.5) and (p_perc * 2) or 1
       local particleColor = f.rgbToHex(p_r, p_g, 0)
@@ -2017,7 +1962,7 @@ do
       local speed = GetUnitSpeed("player") / 7 * 100
       local speedColor = (speed > 0) and f.GetCachedColor("speed", speed, 250) or "888888"
 
-      -- Spell Delay
+      -- Спеллы
       local spellDelay, spell = GetSpellUseDelay()
       spellDelay = f.GetSmoothedValue("spellDelay", spellDelay)
       local spellDelayColor = tonumber(spellDelay) and f.GetCachedColor("spell", spellDelay, 150) or "f1f1a1"
@@ -2026,233 +1971,134 @@ do
       if spell then
         local icon = select(3, GetSpellInfo(spell))
         if icon then 
-          spellIconStr = format(" |T%s:%d|t", icon, DEFAULT_FONT_SIZE + 1)
-        end
-      end
-
-      -- Время (Realm)
-      local h, m, s, ms = GameTime:Get()
-      local realmTimeFmt = ms 
-        and format("%02d:%02d:%02d.%03d", h, m, s, ms)
-        or  format("%02d:%02d", h, m)
-        
-      -- Таймер БГ
-      local bgTimeStr = ""
-      if (InBg or InArena) then
-        local bgRunTime = GetBattlefieldInstanceRunTime()
-        if bgRunTime and bgRunTime > 0 then
-          bgTimeStr = format("  %s: |cccf1f1a1%s|r", PVPINST, formatTime(bgRunTime / 1000))
+          spellIconStr = format(" |T%s:%d|t", icon, (cfg.fontSize or DEFAULT_FONT_SIZE) + 1)
         end
       end
 
       -- === СБОРКА СТРОК (БЛОКИ) ===
+      wipe(finalLines) -- Главная таблица для всех строк (с переносом \n)
+      wipe(row)       -- Временная таблица для сборки текущей строки
+      local rIdx = 1        -- Индекс для быстрой вставки без вызова table.insert
+
+      -- Блок 1: Инфо (Зона, БГ, Время)
+      if cfg.showZoneInfo then
+        row[rIdx] = GetZoneInfo(); rIdx = rIdx + 1
+      end
       
-      -- Блок 1: Инфо (Зона, Рес, Время)
-      local rezInfo = (cfg.RezTimer and GetRezTimerInfo()) or ""
-      local topBlock = format("%s%s%s\n%s: |cccf1f1a1%s|r%s%s: |cccf1f1a1%s|r",
-        GetZoneInfo(), -- Зона
-        bgTimeStr,     -- Таймер БГ (если есть)
-        (rezInfo ~= "") and ("\n"..rezInfo) or "", -- Таймер реса (с новой строкой если есть)
-        TIME, TimeFormatter:GetFormattedTime(),    -- Локальное время
-        INDENT, REALM, realmTimeFmt                -- Серверное время
-      )
+      if cfg.showBgInstanceRunTime and (InBg or InArena) then
+        local bgRunTime = GetBattlefieldInstanceRunTime()
+        if bgRunTime and bgRunTime > 0 then
+          row[rIdx] = format("%s: |cccf1f1a1%s|r", PVPINST, formatTime(bgRunTime / 1000))
+          rIdx = rIdx + 1
+        end
+      end
+      
+      if rIdx > 1 then
+        finalLines[#finalLines + 1] = tconcat(row, INDENT)
+        wipe(row); rIdx = 1
+      end
+      
+      -- Таймер реса (отдельной строкой)
+      if cfg.RezTimer then
+        local rezInfo = GetRezTimerInfo()
+        if rezInfo and rezInfo ~= "" then
+          finalLines[#finalLines + 1] = rezInfo
+        end
+      end
+      
+      -- Время
+      if cfg.showTime then
+        row[rIdx] = format("%s: |cccf1f1a1%s|r", TIME, TimeFormatter:GetFormattedTime(cfg.showDate, cfg.showDayOfWeek, cfg.showMilliseconds))
+        rIdx = rIdx + 1
+      end
+      
+      if cfg.showServerTime then
+        row[rIdx] = format("%s: |cccf1f1a1%s|r", REALM, GameTime:GetFormatted(cfg.showMilliseconds))
+        rIdx = rIdx + 1
+      end
+      
+      if rIdx > 1 then
+        finalLines[#finalLines + 1] = tconcat(row, INDENT)
+        wipe(row); rIdx = 1
+      end
 
       -- Блок 2: Технические (FPS, Частицы, Онлайн)
-      local techBlock = format("\nFPS: |ccc%s%-5d|r  %s: |ccc%s%-3d|r%s%s: |cccf1f1a1%s|r%s%s: |cccf1f1a1%s|r",
-        fpsColor, fps, 
-        PARTICLES, particleColor, particleDensity,
-        INDENT, PLSRV, connections,
-        INDENT, PLWHO, whoResults
-      )
-           
+      if cfg.showFPS then 
+        row[rIdx] = format("FPS: |ccc%s%-3d|r", fpsColor, fps); rIdx = rIdx + 1 
+      end
+      if cfg.showParticles then 
+        row[rIdx] = format("%s: |ccc%s%-3d%s|r", PARTICLES, particleColor, particleDensity, PERCENT); rIdx = rIdx + 1 
+      end
+      if cfg.showServerOnline then 
+        row[rIdx] = format("%s: |cccf1f1a1%s|r", PLSRV, connections); rIdx = rIdx + 1 
+      end
+      if cfg.showWhoOnline then 
+        row[rIdx] = format("%s: |cccf1f1a1%s|r", PLWHO, whoResults); rIdx = rIdx + 1 
+      end
+      
+      if rIdx > 1 then
+        finalLines[#finalLines + 1] = tconcat(row, INDENT)
+        wipe(row); rIdx = 1
+      end
+
       -- Блок 3: Сеть (Пинг, RTT, Спеллы, Сервер)
-      local netBlock = format("\nLAT: |ccc%s%s|r%sRTT: |ccc%s%s|r%s%s: |ccc%s%s%s|r%s%s: |ccc%s%s|r%s%s: |cccf1f1a1%s|r",
-        latColor, latency,
-        INDENT, respColor, responce,
-        INDENT, SPELL, spellDelayColor, spellDelay, spellIconStr,
-        INDENT, SERV_DELAY, srvDelayColor, srvDelayVal,
-        INDENT, UPTIME, serverUptime
-      )
-           
+      if cfg.showLatencyHome then 
+        row[rIdx] = format("LAT: |ccc%s%-3d|r", latColor, latency); rIdx = rIdx + 1 
+      end
+      if cfg.showRTT then 
+        row[rIdx] = format("RTT: |ccc%s%-3s|r", respColor, responce); rIdx = rIdx + 1 
+      end
+      if cfg.showSpellDelay then 
+        row[rIdx] = format("%s: |ccc%s%-4s|r", SPELL, spellDelayColor, spellDelay..spellIconStr); rIdx = rIdx + 1 
+      end
+      if cfg.showServerLatency then 
+        row[rIdx] = format("%s: |ccc%s%-3s|r", SERV_DELAY, srvDelayColor, srvDelayVal); rIdx = rIdx + 1 
+      end
+      if cfg.showServerUptime then 
+        row[rIdx] = format("%s: |cccf1f1a1%s|r", UPTIME, serverUptime); rIdx = rIdx + 1 
+      end
+      
+      if rIdx > 1 then
+        finalLines[#finalLines + 1] = tconcat(row, INDENT)
+        wipe(row); rIdx = 1
+      end
+
       -- Блок 4: Статы игрока
-      local statsBlock = statsInfoString
+      if statsInfoString and statsInfoString ~= "" then
+        row[rIdx] = statsInfoString; rIdx = rIdx + 1
+      end
       
       if cfg.showMovementSpeed then
-        statsBlock = format("%s%s%s: |ccc%s%d%s|r", statsBlock, statsBlock ~= "" and INDENT or "", MOVE_SPEED, speedColor, speed, PERCENT)
-      end
-           
-      if statsBlock ~= "" then
-        --print(statsBlock)
-        statsBlock = "\n" .. statsBlock
+        row[rIdx] = format("%s: |ccc%s%d%s|r", MOVE_SPEED, speedColor, speed, PERCENT)
+        rIdx = rIdx + 1
       end
       
+      if rIdx > 1 then
+        finalLines[#finalLines + 1] = tconcat(row, INDENT)
+        wipe(row); rIdx = 1
+      end
+      
+      -- Статистика БГ (в самом низу)
       if ENABLE_BG_INFO_BLOCK or cfg.showBattlegroundStats then
-        statsBlock = statsBlock .. "\n" .. bgInfoString
+        if bgInfoString and bgInfoString ~= "" then
+          finalLines[#finalLines + 1] = bgInfoString
+        end
       end
-      
-      -- Финальная склейка
-      local finalText = topBlock .. techBlock .. netBlock .. statsBlock
+
+      -- Финальная склейка ВСЕГО текста через перенос строки
+      local finalText = tconcat(finalLines, "\n")
 
       if self.text:GetText() ~= finalText then
         self.text:SetText(finalText)
       end
       
-      -- Обновление слайдера (синхронизация с частицами)
-      if cfg.showParticleDensityBar and f:GetValue() ~= particleDensity then
-        f:SetValue(particleDensity) 
-      end
-    end)
-    
-    --[[
-    textFrame:SetScript("onupdate", function(self, elapsed)
-      self.t = self.t + elapsed
-      --self.servInfoTime = self.servInfoTime and self.servInfoTime + cfg.updateIntervalGlobal
-      --print(self.t)
-      if self.t < cfg.updateIntervalGlobal then return end
-
-      self.servInfoTime = self.servInfoTime + self.t
-      
-      local UPDATE_INTERVAL_SERVER_INFO = cfg.update_interval_server_info or UPDATE_INTERVAL_SERVER_INFO
-      
-      if cfg.server_info and not self.needWaitServerInfo and self.servInfoTime > UPDATE_INTERVAL_SERVER_INFO then
-        self.needWaitServerInfo = true
-        self.servInfoTime = 0
-        --print("server info")
-        SendChatMessage(".server info", "guild")
-        if not (WhoFrameEditBox:IsVisible() and WhoFrameEditBox:GetText() ~= "") and not IsShiftKeyDown() then
-          SendWho("")
-        end
-      end
-      
-      -- === СБОР ДАННЫХ ===
-      
-      -- 1. Зона (кэшированная)
-      local zoneStr = ns.GetZoneInfo()
-      
-      -- 2. Таймер реса
-      local rezStr = cfg.RezTimer and GetRezTimerInfo()
-
-      -- 3. Время (быстрое обновление)
-      local timeStr = "|cccf1f1a1" .. TimeFormatter:GetFormattedTime() .. "|r"
-      local realmTimeStr = ""
-
-      local h, m, s, ms = GameTime:Get()
-      if ms then 
-        realmTimeStr = format("%s%s: |cccf1f1a1%02d:%02d:%02d.%03d|r", INDENT, REALM, h, m, s, ms)
-      else
-        realmTimeStr = format("%s%s: |cccf1f1a1%02d:%02d|r", INDENT, REALM, h, m)
-      end
-
-      local particleDensity = tonumber(GetCVar("particleDensity"))*100
-      local particle_percent = particleDensity / 100
-      
-      local particle_r, particle_g, particle_b
-      if particle_percent < 0.5 then
-        -- Переход от красного (1,0,0) к желтому (1,1,0)
-        particle_r = 1
-        particle_g = particle_percent * 2  -- От 0 до 1
-      else
-        -- Переход от желтого (1,1,0) к зеленому (0,1,0)
-        particle_r = 2 - (particle_percent * 2) -- От 1 до 0
-        particle_g = 1
-      end
-      
-      -- 4. Частицы
-      --local rawDensity = tonumber(GetCVar("particleDensity"))*100
-      --print(rawDensity)
-      --local particleColor = f.GetCachedColor("particle", rawDensity, 50) -- 50 середина, логика чуть упрощена для скорости
-      --if rawDensity < 50 then particleColor = f.rgbToHex(rawDensity/50, 1, 0) end -- Кастомная логика для частиц
-      local particleColor = f.rgbToHex(particle_r, particle_g, 0)
-      
-      -- 5. Сглаженные статы
-      local latency = f.GetSmoothedValue("latency", select(3, GetNetStats()))
-      local latColor = f.GetCachedColor("latency", latency, 150)
-      
-      local responce = f.GetSmoothedValue("responce", ns.responceTime)
-      local respColor = tonumber(responce) and f.GetCachedColor("responce", responce, 150) or "f1f1a1"
-      
-      local connections = f.GetSmoothedValue("connections", activeConnections)
-      local whoResults = f.GetSmoothedValue("who", NumWhoResults)
-      
-      local srvDelayVal = f.GetSmoothedValue("srvDelay", serverDelay)
-      local srvDelayColor = tonumber(srvDelayVal) and f.GetCachedColor("srvDelay", srvDelayVal, 150) or "f1f1a1"
-      
-      local fps = GetFramerate()
-      local fpsColor = f.GetCachedColor("fps", fps, 60)
-      
-      -- Spell Delay
-      local spellDelay, spell = GetSpellUseDelay()
-      spellDelay = f.GetSmoothedValue("spellDelay", spellDelay)
-      local spellDelayColor = tonumber(spellDelay) and f.GetCachedColor("spell", spellDelay, 150) or "f1f1a1"
-      if spell then
-        local spellIcon = select(3, GetSpellInfo(spell))
-        if spellIcon then 
-          spellDelay = spellDelay .. " |T" .. spellIcon .. ":"..(DEFAULT_FONT_SIZE+1).."|t"
-        end
-      end
-
-      -- 6. Скорость
-      local speed = GetUnitSpeed("player") / 7 * 100
-      local speedColor = f.GetCachedColor("speed", speed, 250)
-      if speed == 0 then speedColor = "888888" end
-
-      -- === СБОРКА СТРОКИ (Единый format для экономии памяти) ===
-      
-      -- Собираем строку "блоками", чтобы избежать множества '..'
-      -- Блок 1: Верх (Зона, Рес, Время)
-      -- local topBlock = zoneStr 
-      local topBlock = zoneStr
-     
-      local BattlefieldInstanceRunTime, BattlefieldInstanceRunTimeInfo = (InBg or InArena) and GetBattlefieldInstanceRunTime()
-      --local BattlefieldInstanceRunTime = GetBattlefieldInstanceRunTime()
-      --print(BattlefieldInstanceRunTime)
-      if BattlefieldInstanceRunTime then
-        topBlock = topBlock .. "  "..PVPINST..": |cccf1f1a1"..formatTime(BattlefieldInstanceRunTime / 1000).."|r"
-      end
-
-      if rezStr ~= "" then topBlock = topBlock .. "\n" .. rezStr end
-      topBlock = topBlock .. "\n"..TIME..": " .. timeStr .. realmTimeStr
-
-      -- Блок 2: Технические статы (FPS, Particles, PL)
-      -- %-4d : 
-      -- "-" означает выравнивание по левому краю (пробелы полетят вправо)
-      -- "4" это общая ширина строки
-      -- "d" означает, что мы работаем с целым числом
-      local techBlock = format("\nFPS: |ccc%s%-5d|r  %s: |ccc%s%-3d|r%s%s: |cccf1f1a1%s|r%s%s: |cccf1f1a1%s|r",
-          fpsColor, fps, PARTICLES, particleColor, particleDensity, INDENT, PLSRV, connections, INDENT, PLWHO, whoResults)
-          
-      -- Блок 3: Сетевые статы (Lat, Msg, Spell, Serv, Upt)
-      local netBlock = format("\nLAT: |ccc%s%s|r%sRTT: |ccc%s%s|r%s%s: |ccc%s%s|r%s%s: |ccc%s%s|r%s%s: |cccf1f1a1%s|r",
-          latColor, latency, INDENT, respColor, responce, INDENT, SPELL, spellDelayColor, spellDelay, INDENT, SERV_DELAY, srvDelayColor, srvDelayVal, INDENT, UPTIME, serverUptime)
-          
-      -- Блок 4: Инфо (BG, Stats, Speed)
-      --local infoBlock = format("\n%s    PVPINST: |cccf1f1a1%s|r\n%s    %s: |ccc%s%d|r",
-          --bgInfoString, formatTime(GetBattlefieldInstanceRunTime() / 1000), statsInfoString, MOVE_SPEED, speedColor, speed)
-      local infoBlock = format("\n%s%s", statsInfoString, INDENT)
-          
-      if cfg.showMovementSpeed then
-        infoBlock = infoBlock .. format("%s: |ccc%s%d|r", MOVE_SPEED, speedColor, speed)
-      end
-          
-      if ENABLE_BG_INFO_BLOCK or cfg.showBattlegroundStats then
-        infoBlock = infoBlock .. "\n" .. bgInfoString
-      end
-
-      -- Финальная склейка (всего 3 конкатенации вместо 20+)
-      local finalText = topBlock .. techBlock .. netBlock .. infoBlock
-
-      if self.text:GetText() ~= finalText then
-        self.text:SetText(finalText)
-      end
-      
-      -- Обновление слайдера настроек частиц (если открыт)
+      -- Обновление слайдера
       if cfg.showParticleDensityBar and f:GetValue() ~= particleDensity then
         f:SetValue(particleDensity) 
       end
       
-      self.t = 0
-    end)
-    ]]
+      self.updating = nil
+    end
   end
   -- end status bar
   
@@ -2634,7 +2480,7 @@ do
             local _string = format(MAINMENUBAR_LATENCY_LABEL, latency)
             local textRegion = _G[GameTooltip:GetName().."TextLeft"..i]
             local color = tonumber(ns.responceTime) and f.RGBGradient(ns.responceTime/150) or "ffffff"
-            textRegion:SetText(_string..", RTT: |cff"..color..""..ns.responceTime.."|r")
+            textRegion:SetText(_string..", RTT: |cff"..color..ns.responceTime.."|r")
             GameTooltip:Show()
             break
           end
@@ -2716,4 +2562,3 @@ do
     ns.dynamicParticleDensity = f
   end
 end
-
