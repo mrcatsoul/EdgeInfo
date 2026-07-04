@@ -10,8 +10,9 @@ do
   local PARTICLE_DENSITY_BAR_MIN_WIDTH = 50
   local PARTICLE_DENSITY_BAR_MIN_HEIGHT = 7
   local PARTICLE_DENSITY_BAR_MIN_HEIGHT = 7
-  local DEFAULT_FRAME_STRATA = "high"
+  local DEFAULT_FRAME_STRATA = "medium"
   local DEFAULT_FRAME_LEVEL = 10
+  local DEFAULT_FONT_FLAGS = "none"
   local INDENT_BIG = "    "
   local INDENT_SMALL = " "
   local PERCENT_SIGN = "%"
@@ -39,15 +40,7 @@ do
     "FORCEDSQUARE.ttf",
     "hooge test1.ttf",
   }
-  
-  ns.fontsFlags = {
-    "NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME", "MONOCHROMEOUTLINE"
-  }
-  
-  ns.frameStrata = {
-    "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"
-  }
-  
+
   ns.statsEvent = {
     "PLAYER_TALENT_UPDATE",
     "UNIT_ATTACK_POWER",
@@ -163,7 +156,7 @@ do
   local SPELL_POWER, RES, CRIT, HASTE, HIT, MOVE_SPEED, TO_RES
   local BY_CORPSE, TO_RES_BY_CORPSE, ENEMIES, READY, BG_PTS, MAP
   local TIME, PLWHO, PLSRV, PVPINST, UPTIME, PVPFLAG, REALM
-  local ARMOR, PARRY, DODGE, SPELL, INCORRECT_VALUE
+  local ARMOR, PARRY, DODGE, SPELL, INCORRECT_VALUE, MEMORY
   
   function ns.ForceUpdateLocale()
     --local L = GetLocale()=="ruRU" and cfg.force_en_locale and "enUS" or cfg.force_rus_locale and "ruRU" or GetLocale() 
@@ -201,6 +194,7 @@ do
     DODGE = L=="ruRU" and "Укл" or "DOD"
     SPELL = L=="ruRU" and "Закл" or "SPELL"
     INCORRECT_VALUE = L=="ruRU" and "Некоректное значение" or "Incorrect value"
+    MEMORY = L=="ruRU" and "Пам" or "MEM"
   end
   
   ns.ForceUpdateLocale()
@@ -236,12 +230,12 @@ do
   local function Localise(tbl)
     if not tbl then return nil end
     local k
-    if cfg.locale:find("ru") then 
+    if cfg.locale and cfg.locale:find("ru") then 
       k = "ru" 
     else
       k = "en" 
     end
-    return tbl[k] or tbl.en or tbl.ru or ""
+    return tbl[k] or ""
   end
 
   local DelayedCall, CancelDelayedCall
@@ -301,55 +295,74 @@ do
     cfgPanel:SetAllPoints(InterfaceOptionsFramePanelContainer)
     cfgPanel:Hide()
     
-    local cfgScroll = CreateFrame("ScrollFrame", ADDON_NAME.."SettingsScrollFrame", InterfaceOptionsFramePanelContainer, "UIPanelScrollFrameTemplate")
-    cfgScroll:SetScrollChild(cfgPanel)
-    --cfgScroll.name = "|cff00ffff" .. Localise({ en = ADDON_NAME, ru = ADDON_NAME })
-    cfgScroll.name = ADDON_NAME_LOCALE
-    cfgScroll:SetSize(FRAME_WIDTH, FRAME_HEIGHT)
-    cfgScroll:SetVerticalScroll(0)
-    -- cfgScroll:SetVerticalScroll(10)
-    -- cfgScroll:SetHorizontalScroll(10)
-    cfgScroll:Hide()
-    InterfaceOptions_AddCategory(cfgScroll)
-    
-    cfgScroll:SetScript("OnShow", function()
-      cfgPanel:Show()
-    end)
+    -- -------------------------
+    -- scroll
+    -- -------------------------
+    do
+      local cfgScroll = CreateFrame("ScrollFrame", ADDON_NAME.."SettingsScrollFrame", InterfaceOptionsFramePanelContainer, "UIPanelScrollFrameTemplate")
+      cfgPanel.scroll = cfgScroll
+      cfgScroll:SetScrollChild(cfgPanel)
+      --cfgScroll.name = "|cff00ffff" .. Localise({ en = ADDON_NAME, ru = ADDON_NAME })
+      cfgScroll.name = ADDON_NAME_LOCALE
+      cfgScroll:SetSize(FRAME_WIDTH, FRAME_HEIGHT)
+      cfgScroll:SetVerticalScroll(0)
+      -- cfgScroll:SetVerticalScroll(10)
+      -- cfgScroll:SetHorizontalScroll(10)
+      cfgScroll:Hide()
+      InterfaceOptions_AddCategory(cfgScroll)
+      
+      cfgScroll:SetScript("OnShow", function()
+        cfgPanel:Show()
+      end)
 
-    cfgScroll:SetScript("OnHide", function()
-      cfgPanel:Hide()
-    end)
-    
-    _G[ADDON_NAME.."SettingsScrollFrameScrollBar"]:SetPoint("topleft",ADDON_NAME.."SettingsScrollFrame","topright",-25,-25)
-    _G[ADDON_NAME.."SettingsScrollFrameScrollBar"]:SetFrameLevel(1000)
-    _G[ADDON_NAME.."SettingsScrollFrameScrollBarScrollDownButton"]:SetPoint("top",ADDON_NAME.."SettingsScrollFrameScrollBar","bottom",0,7)
+      cfgScroll:SetScript("OnHide", function()
+        cfgPanel:Hide()
+      end)
+      
+      _G[ADDON_NAME.."SettingsScrollFrameScrollBar"]:SetPoint("topleft",ADDON_NAME.."SettingsScrollFrame","topright",-25,-25)
+      _G[ADDON_NAME.."SettingsScrollFrameScrollBar"]:SetFrameLevel(1000)
+      _G[ADDON_NAME.."SettingsScrollFrameScrollBarScrollDownButton"]:SetPoint("top",ADDON_NAME.."SettingsScrollFrameScrollBar","bottom",0,7)
+    end
     
     -- -------------------------
-    -- tooltip
+    -- title and tooltip
     -- -------------------------
-    local cfgTitle = cfgPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    cfgTitle:SetPoint("TOPLEFT", 15, -10)
-    cfgTitle:SetFont(GameFontNormal:GetFont(), 18, "OUTLINE")
-    cfgTitle:SetText(ADDON_NAME_LOCALE.." v"..ADDON_VERSION)
+    do
+      local cfgTitle = cfgPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+      cfgTitle:SetPoint("TOPLEFT", 15, -10)
+      cfgTitle:SetFont(GameFontNormal:GetFont(), 18, "OUTLINE")
+      cfgTitle:SetText(ADDON_NAME_LOCALE.." v"..ADDON_VERSION)
 
-    local titleTip = CreateFrame("button", ADDON_NAME.."_tooltipFrame", cfgPanel)
-    titleTip:SetPoint("center", cfgTitle, "center")
-    --titleTip:SetSize(cfgTitle:GetStringWidth()+11, cfgTitle:GetStringHeight()+1) 
-    
-    titleTip:SetScript("OnEnter", function(self) 
-      GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-      GameTooltip:SetText(ADDON_NAME_LOCALE.." v"..ADDON_VERSION.."\n\n"..ADDON_NOTES.."\n\n"..GetAddOnMetadata(ADDON_NAME, "X-Repository"), nil, nil, nil, nil, true)
-      GameTooltip:Show() 
-    end)
+      local titleTip = CreateFrame("button", ADDON_NAME.."_tooltipFrame", cfgPanel)
+      titleTip:SetPoint("center", cfgTitle, "center")
+      --titleTip:SetSize(cfgTitle:GetStringWidth()+11, cfgTitle:GetStringHeight()+1) 
+      
+      titleTip:SetScript("OnEnter", function(self) 
+        GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+        GameTooltip:SetText(ADDON_NAME_LOCALE.." v"..ADDON_VERSION.."\n\n"..ADDON_NOTES.."\n\n"..GetAddOnMetadata(ADDON_NAME, "X-Repository"), nil, nil, nil, nil, true)
+        GameTooltip:Show() 
+      end)
 
-    titleTip:SetScript("OnLeave", function(self) 
-      GameTooltip:Hide() 
-    end)
-    
-    titleTip:SetScript("OnShow", function(self) 
-      self:SetSize(cfgTitle:GetStringWidth(), cfgTitle:GetStringHeight())
-    end)
-    
+      titleTip:SetScript("OnLeave", function(self) 
+        GameTooltip:Hide() 
+      end)
+      
+      titleTip:SetScript("OnShow", function(self) 
+        self:SetSize(cfgTitle:GetStringWidth(), cfgTitle:GetStringHeight())
+      end)
+      
+      titleTip:SetScript("OnClick", function(self) 
+        InterfaceOptionsFrame:Hide()
+        --GameMenuFrame:Hide()
+        HideUIPanel(GameMenuFrame)
+        cfgPanel.ShowAbout()
+        --cfgPanel.PrintAbout()
+      end)
+      
+      cfgPanel.title = cfgTitle
+      cfgPanel.titleTip = titleTip
+    end
+
     local function GetNextChar(str, startPos)
       local byte = string.byte(str, startPos)
       if not byte then return nil end
@@ -362,213 +375,244 @@ do
       end
     end
 
-    cfgPanel.aboutString = "Скрипт на тех-инфу слева в нижнем углу.\r\rНастройки: Главное меню > Интерфейс > Модификации.\r\r" .. ADDON_NOTES .. "\r\rРепозиторий: |ccc00aaff" .. GetAddOnMetadata(ADDON_NAME, "X-Repository") .. "|r\r\rЕсли это окно появилось автоматически - значит стандартная конфигурация была создана и данное окно более не появится для этого аккаунта.\r\rPS: Впервые тестирую скрипт-приветствие в подобном формате(окно с копипастом), вкурсе что навязчиво, ноооооо мб так кто-нибудь узнает об авторе если дочитает это до конца, и может даже скинет ему на пивасик/мораль/мотивацию :)"
-
+    -- ----------------
+    -- About
+    -------------------
     function cfgPanel.ShowAbout()
-      StaticPopup_Show(ADDON_NAME .. "_TEST1")
+      cfgPanel:RegisterEvent("PLAYER_REGEN_DISABLED")
+      --StaticPopup_Show(ADDON_NAME .. "_TEST1")
+      cfgPanel.CreateAbout()
+      cfgPanel.AboutFrame:Show()
     end
     
-    local displayCursor = " |"
+    function cfgPanel.HideAbout()
+      --StaticPopup_Hide(ADDON_NAME .. "_TEST1")
+      if cfgPanel.AboutFrame then
+        cfgPanel.AboutFrame:Hide()
+      end
+    end
+    
+    function cfgPanel.PrintAbout()
+      print("["..ADDON_NAME_LOCALE.."]:", cfgPanel.aboutString)
+    end
+    
+    function cfgPanel.CreateAbout()
+      -- Создаем главный фрейм (окно)
+      if _G[ADDON_NAME .. "_AboutFrame"] then return end
+      
+      local aboutFrame = CreateFrame("Frame", ADDON_NAME .. "_AboutFrame", UIParent)
+      tinsert(UISpecialFrames, aboutFrame:GetName())
+      aboutFrame:SetWidth(420) -- Ширину можно подогнать под себя
+      --aboutFrame:SetPoint(CharacterFrame:GetPoint())
+      aboutFrame:SetPoint(StaticPopup2:GetPoint())
+      aboutFrame:SetFrameStrata("DIALOG")
+      -- aboutFrame:EnableMouse(true)
+      -- aboutFrame:SetMovable(true)
+      -- aboutFrame:RegisterForDrag("LeftButton")
+      aboutFrame:SetScript("OnDragStart", aboutFrame.StartMoving)
+      aboutFrame:SetScript("OnDragStop", aboutFrame.StopMovingOrSizing)
+      aboutFrame:Hide()
 
-    StaticPopupDialogs[ADDON_NAME .. "_TEST1"] = {
-      text = ADDON_NAME_LOCALE .. " " .. ADDON_VERSION,
-      button1 = OKAY,
-      hasEditBox = 1,
-      maxLetters = 1000,
-      hasWideEditBox = 1,
-      timeout = 0,
-      exclusive = 1,
-      whileDead = 1,
-      hideOnEscape = 1,
-      closeButton = 1,
+      -- Стандартный фон в стиле WoW 3.3.5
+      aboutFrame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 11, right = 12, top = 12, bottom = 11 }
+      })
 
-      OnAccept = function(self)
-        if self.wideEditBox:GetScript("OnUpdate") then
+      -- Заголовок окна (аналог text = ...)
+      local titleText = aboutFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+      titleText:SetPoint("TOP", 0, -16)
+      titleText:SetWidth(250) -- Устанавливаем ширину, чтобы текст знал, где пора переноситься
+      titleText:SetJustifyH("CENTER") -- Центровка текста
+      titleText:SetJustifyV("TOP")
+      titleText:SetFont(ADDON_FOLDER .. "\\Hack-Bold.ttf", 11)
+      titleText:SetWordWrap(true) -- Разрешаем перенос слов
+      titleText:SetText(ADDON_NAME_LOCALE .. " " .. ADDON_VERSION)
+      titleText:SetTextColor(1, 1, 1)
+
+      -- Поле ввода (аналог wideEditBox)
+      local editBox = CreateFrame("EditBox", ADDON_NAME .. "_AboutEditBox", aboutFrame)
+      editBox:SetMultiLine(true)
+      editBox:SetAutoFocus(false)
+      editBox:SetFont(ADDON_FOLDER .. "\\Hack.ttf", 11)
+      editBox:SetWidth(350)
+      editBox:SetPoint("TOP", titleText, "BOTTOM", 0, -12)
+
+      -- Кнопка (аналог button1)
+      local button = CreateFrame("Button", ADDON_NAME .. "_AboutButton", aboutFrame, "UIPanelButtonTemplate")
+      button:SetSize(StaticPopup1Button1:GetSize())
+      button:SetPoint("BOTTOM", 0, 16)
+      button:SetText(OKAY)
+
+      -- Кнопка-крестик в углу
+      local closeButton = CreateFrame("Button", nil, aboutFrame, "UIPanelCloseButton")
+      closeButton:SetPoint("TOPRIGHT", aboutFrame, "TOPRIGHT", -3, -3)
+      closeButton:SetScript("OnClick", function()
+        aboutFrame:Hide()
+      end)
+
+      -- Локальные переменные для анимации
+      local expectedText = ""
+      local currentByte = 1
+      local elapsedAccumulator = 0
+      local speed = 0.015
+
+      -- Вспомогательная функция для остановки анимации
+      local function StopAnimation()
+        editBox:SetScript("OnUpdate", nil)
+        editBox:SetText(cfgPanel.aboutString)
+        button:SetText(Localise({ru = "Пон", en = OKAY}))
+        if not GetCurrentKeyBoardFocus() then
+          editBox:SetFocus()
+        end
+      end
+      
+      local function SetPoint()
+        for i = 2, 1, -1 do
+          local p = _G["StaticPopup".. i]
+          if p:IsShown() then
+            if i == 2 then
+              aboutFrame:SetPoint(CharacterFrame:GetPoint())
+            else
+              aboutFrame:SetPoint(_G["StaticPopup".. (i+1)]:GetPoint())
+            end
+          elseif i == 1 then
+            aboutFrame:SetPoint(_G["StaticPopup".. i]:GetPoint())
+          end
+        end
+      end
+
+      -- Обработка клика по кнопке (аналог OnAccept)
+      button:SetScript("OnClick", function()
+        if editBox:GetScript("OnUpdate") then
           DelayedCall(0.01, function()
             cfgPanel.ShowAbout()
-            self.wideEditBox:SetScript("OnUpdate", nil)
-            self.wideEditBox:SetText(cfgPanel.aboutString)
-            if not GetCurrentKeyBoardFocus() then
-              self.wideEditBox:SetFocus()
-            end
+            StopAnimation()
           end)
-          --_G[self:GetName().."Button1"]:SetText("Показать фул")
         else
-          self:Hide()
+          aboutFrame:Hide()
         end
-      end,
-      
-      OnShow = function(self)
-        self.wideEditBox:SetScript("OnUpdate", nil)
-        self.wideEditBox:SetScript("OnEditFocusGained", nil)
-        self.wideEditBox:SetScript("OnTextChanged", nil)
+      end)
 
-        self.wideEditBox:SetAutoFocus(false)
-        --self.wideEditBox:EnableKeyboard(false)
-        self.wideEditBox:ClearFocus()
+      -- Инициализация при показе окна (аналог OnShow)
+      aboutFrame:SetScript("OnShow", function(self)
+        editBox:SetScript("OnUpdate", nil)
+        --editBox:SetScript("OnEditFocusGained", nil)
+        --editBox:SetScript("OnTextChanged", nil)
+        editBox:SetAutoFocus(false)
+        editBox:ClearFocus()
         
-        if self.wideEditBox:GetText() == cfgPanel.aboutString then 
-          return 
-        end
-        
-        select(8, self.wideEditBox:GetRegions()):Hide()
-        if(_G[self.wideEditBox:GetName().."Left"]) then _G[self.wideEditBox:GetName().."Left"]:Hide() end
-        if(_G[self.wideEditBox:GetName().."Middle"]) then _G[self.wideEditBox:GetName().."Middle"]:Hide() end
-        if(_G[self.wideEditBox:GetName().."Mid"]) then _G[self.wideEditBox:GetName().."Mid"]:Hide() end
-        if(_G[self.wideEditBox:GetName().."Right"]) then _G[self.wideEditBox:GetName().."Right"]:Hide() end
+        SetPoint()
 
-        self.wideEditBox:SetFont(ADDON_FOLDER.."\\Hack.ttf", 11)
-        _G[self:GetName().."Text"]:SetFont(ADDON_FOLDER.."\\Hack-Bold.ttf", 11)
-        
-        self.wideEditBox:SetMultiLine()
-      
-        local currentByte = 1
-        local elapsedAccumulator = 0
-        local speed = .001 -- задержка между буквами
-        
-        self.wideEditBox:SetText("") -- очищаем перед началом
+        currentByte = 1
+        elapsedAccumulator = 0
+        expectedText = ""
+        editBox:SetText("")
 
-        --self.wideEditBox:SetScript("OnCursorChanged", function(s, ...) 
-          --print("OnCursorChanged")
-          -- if s:GetScript("OnUpdate") then
-            -- --s:SetCursorPosition(#(s:GetText() or ""))
-          -- end
-        --end)
-        
-        -- self.wideEditBox:SetScript("OnChar", function(s, ...) 
-          -- print("OnChar",...)
-        -- end)
-        
-        local expectedText = "" -- Переменная, где мы храним то, что реально напечатал аддон
-
-        self.wideEditBox:SetScript("OnUpdate", function(s, elapsed)
+        -- Анимация печати текста
+        editBox:SetScript("OnUpdate", function(s, elapsed)
           elapsedAccumulator = elapsedAccumulator + elapsed
-          
-          --local butt = _G[self:GetName().."Button1"]
           local text = s:GetText()
-          
+
           if text == cfgPanel.aboutString then
-            --butt:SetText("Пон")
             s:SetScript("OnUpdate", nil)
             if not GetCurrentKeyBoardFocus() then
-              self.wideEditBox:SetFocus()
+              s:SetFocus()
             end
-          else 
-            --butt:SetText("Показать фул")
-            --s:ClearFocus()
-          
+          else
             if elapsedAccumulator >= speed then
               elapsedAccumulator = 0
-              
-              -- Получаем символ и его длину в байтах
               local nextChar, byteLen = GetNextChar(cfgPanel.aboutString, currentByte)
 
-              if s:HasFocus() then
-                --s:SetCursorPosition(#(text or "")) -- обязательно если текст пытаются выделить в процессе автоввода кодом (Insert)
-                --s:HighlightText(0, 0)
-                --s:ClearFocus()
-              end
-              
-              local currentPos = s:GetCursorPosition()
-              local totalByteLen = #(text or "")
-              --print(currentPos,totalByteLength)
-              
-              if nextChar --[[and currentPos == totalByteLen]] then
-                --s:SetText(cfgPanel.aboutString:sub(1, currentByte + byteLen - 1))
-                
-                expectedText = expectedText .. nextChar -- Запоминаем, что мы добавили (Insert)
-                --s:Insert(nextChar) -- вставляем символ в текущую позицию курсора
-                
+              if nextChar then
+                expectedText = expectedText .. nextChar
                 s:SetText(expectedText)
                 currentByte = currentByte + byteLen
               else
-                s:SetText(cfgPanel.aboutString)
-                -- Если символов больше нет, выключаем OnUpdate
-                s:SetScript("OnUpdate", nil)
-                if not GetCurrentKeyBoardFocus() then
-                  self.wideEditBox:SetFocus()
-                end
+                StopAnimation()
               end
             end
           end
         end)
-        
-        self.wideEditBox:SetScript("OnTextChanged", function(s, isUserInput)
-          --print("wideEditBox OnTextChanged", isUserInput)
-          self:SetHeight(s:GetHeight() + 100)
-          
-          local butt = _G[s:GetParent():GetName().."Button1"]
-          local curText = s:GetText()
-          
-          if curText == cfgPanel.aboutString then
-            butt:SetText("Пон")
-          else
-            if s:GetScript("OnUpdate") then
-              if isUserInput or curText ~= expectedText then -- текст введен руками
-                s:SetText(expectedText) -- test
-                --s:SetScript("OnUpdate", nil) -- Стоп анимация
-                --s:SetText(cfgPanel.aboutString) -- Показываем весь текст
-                --print("SetScript OnUpdate nil OnTextChanged")
-              else -- текст введен кодом
-                butt:SetText("Показать фул")
-                --print("Показать фул")
-              end
-            else
-              --self:Hide()
-              s:SetText(cfgPanel.aboutString) -- test
-              s:ClearFocus()
-              --print("клоуз OnTextChanged")
-            end
-          end
-        end)
-        
-        self.wideEditBox:SetScript("OnEditFocusGained", function(self)
-          --print("OnEditFocusGained")
-          if self:GetScript("OnUpdate") then
-            --self:SetCursorPosition(#(self:GetText() or "")) -- обязательно если текст пытаются выделить в процессе автоввода кодом (Insert)
-            self:HighlightText(0, 0)
-            self:ClearFocus()
-          end
-        end)
-        
-        -- self.wideEditBox:SetScript("OnMouseDown", function(self, button)
-          -- print("OnMouseDown", button)
-          -- -- Если кликнули левой кнопкой, даем фокус (для копирования)
-          -- -- Если не хочешь, чтобы фокус вообще брался - просто ничего не пиши или ClearFocus()
-          -- if button == "LeftButton" then
-            -- -- self:SetFocus() -- закомментируй, если фокус не нужен вообще
-          -- end
-        -- end)
-      end,
+      end)
 
-      OnHide = function(self)
+      -- Рост окна вниз и контроль ввода (аналог OnTextChanged)
+      editBox:SetScript("OnTextChanged", function(s, isUserInput)
+        -- Растягиваем главное окно относительно высоты editBox
+        aboutFrame:SetHeight(s:GetHeight() + 100)
+        
+        -- ГРАМОТНАЯ БЛОКИРОВКА:
+        -- Если изменение внес пользователь (нажал клавишу, Delete или вставил что-то)
+        if isUserInput then
+          -- Если анимация печати еще идет, возвращаем то, что успели напечатать
+          -- Если анимация закончена, возвращаем полный текст
+          local restoreText = s:GetScript("OnUpdate") and expectedText or cfgPanel.aboutString
+          s:SetText(restoreText)
+          s:ClearFocus()
+          return -- Выходим, чтобы не менять текст кнопок ниже
+        end
+        
+        -- Твоя логика кнопок (выполнится только если текст изменен кодом)
+        local curText = s:GetText()
+        if curText == cfgPanel.aboutString then
+          button:SetText(Localise({ru = "Пон", en = OKAY}))
+        else
+          button:SetText(Localise({ru = "Фул текст", en = "Full text"}))
+        end
+      end)
+        
+      -- Контроль фокуса (аналог OnEditFocusGained)
+      editBox:SetScript("OnEditFocusGained", function(s)
+        if s:GetScript("OnUpdate") then
+          s:HighlightText(0, 0)
+          s:ClearFocus()
+        end
+      end)
+
+      -- Очистка при закрытии (аналог OnHide)
+      aboutFrame:SetScript("OnHide", function()
         ChatEdit_FocusActiveWindow()
-      end,
-      
-      EditBoxOnEscapePressed = function(self)
+        editBox:SetScript("OnUpdate", nil)
+        --editBox:SetScript("OnEditFocusGained", nil)
+        --editBox:SetScript("OnTextChanged", nil)
+      end)
+
+      -- Обработка Escape (аналог EditBoxOnEscapePressed)
+      editBox:SetScript("OnEscapePressed", function(self)
         if self:HasFocus() then
           if self:GetScript("OnUpdate") then
-            self:SetText(cfgPanel.aboutString)
-            --self:HighlightText(0, 0)
+            StopAnimation()
           else
             self:HighlightText(0, 0)
             self:ClearFocus()
           end
         else
           if self:GetScript("OnUpdate") then
-            self:SetText(cfgPanel.aboutString)
+            StopAnimation()
           else
-            --self:GetParent():Hide()
+            aboutFrame:Hide()
           end
         end
-      end,
-    }
-    
-    titleTip:SetScript("OnClick", function(self) 
-      InterfaceOptionsFrame:Hide()
-      GameMenuFrame:Hide()
-      StaticPopup_Show(ADDON_NAME .. "_TEST1")
-    end)
+      end)
+
+      -- Следим за показом любого StaticPopup
+      hooksecurefunc("StaticPopup_Show", function(which)
+        -- Если открывается любой StaticPopup (кроме нашего собственного, если нужно)
+        --if which ~= ADDON_NAME .. "_TEST1" then
+          --if aboutFrame:IsShown() then
+            --aboutFrame:Hide()
+          --end
+        --end
+        SetPoint()
+      end)
+
+      -- Глобальная ссылка, чтобы ты мог вызывать его из других мест
+      cfgPanel.AboutFrame = aboutFrame
+      --_G.AboutFrame = function() --[[aboutFrame:Hide()]] aboutFrame:Show() end
+    end
+    -- end about
 
     -- -------------------------
     -- chat hyperlink to open options (simple)
@@ -580,13 +624,15 @@ do
         local linkType, arg1, option = strsplit(":", link)
         if linkType == "addon" and arg1 and arg1 == (ADDON_NAME.."_link") then
           if option:lower() == "settings" then
-            InterfaceOptionsFrame_OpenToCategory(cfgScroll)
+            cfgPanel.HideAbout()
+            InterfaceOptionsFrame_OpenToCategory(cfgPanel.scroll)
             if not cfgPanel:IsShown() then
               InterfaceOptionsFrameAddOnsListScrollBarScrollDownButton:Click()
-              InterfaceOptionsFrame_OpenToCategory(cfgScroll)
+              InterfaceOptionsFrame_OpenToCategory(cfgPanel.scroll)
             end
           elseif option:lower() == "about" then
             cfgPanel.ShowAbout()
+            --cfgPanel.PrintAbout()
           end
         end
       end)
@@ -603,6 +649,7 @@ do
         return cfgPanel.old(self, link, ...)
       end
     end
+    -- end chat hyperlink
 
     -- Новая структура options:
     -- key        = string (имя в конфиге)
@@ -638,21 +685,23 @@ do
         key = "fontFlags",
         label = { en = "Font flags", ru = "Флаги шрифта" },
         tooltip = { en = "Font flags", ru = "Флаги шрифта" },
-        default = ns.fontsFlags
+        default = DEFAULT_FONT_FLAGS,
+        values = { "NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME", "MONOCHROMEOUTLINE" }
       },
       
       {
         key = "frameStrata",
         label = { en = "Frame strata", ru = "Слой фрейма (frame strata)" },
         tooltip = { en = "Frame strata.\nChange if the text is hidden behind other frames or overlaps them.\nTOOLTIP is the highest layer, BACKGROUND is the lowest.", ru = "Слой фрейма (frame strata).\nМенять если текст скрывается за другими фреймами (например панелью заклинаний) или наоборот поверх их.\nЗадать MEDIUM или HIGH если текст прячется за панелью заклинаний. TOOLTIP - самый верхний слой, BACKGROUND - самый нижний.\nЕсли представить интерфейс как стопку листов бумаги, то Strata — это целые пачки (например, «слой фона» и «слой иконок»), а Frame Level — это порядок листов внутри одной пачки. Чтобы SetFrameLevel сработал, нужно понимать, что он вторичен. Сначала игра проверяет слои (FrameStrata). Фрейм на слое MEDIUM с уровнем 100 всегда будет ниже, чем фрейм на слое HIGH с уровнем 1." },
-        default = ns.frameStrata
+        default = DEFAULT_FRAME_STRATA,
+        values = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
       },
       
       {
         key = "frameLevel",
         label = { en = "Frame level", ru = "Уровень фрейма в слое (frame level)" },
         tooltip = { en = "Frame level.\nChange if the text is hidden behind other frames or overlaps them.", ru = "Уровень фрейма в слое (frame level).\nМенять если текст скрывается за другими фреймами (например панелью заклинаний) или наоборот поверх их.\nЕсли представить интерфейс как стопку листов бумаги, то Strata — это целые пачки (например, «слой фона» и «слой иконок»), а Frame Level — это порядок листов внутри одной пачки. Чтобы SetFrameLevel сработал, нужно понимать, что он вторичен. Сначала игра проверяет слои (FrameStrata). Фрейм на слое MEDIUM с уровнем 100 всегда будет ниже, чем фрейм на слое HIGH с уровнем 1." },
-        default = 10, min = 0, max = 128
+        default = DEFAULT_FRAME_LEVEL, min = 0, max = 128
       },
       
       {
@@ -853,8 +902,8 @@ do
       
       {
         key = "showAttackPowerOrSpd",
-        label = { en = "Show Attack/Spell Power (AP/SP)", ru = "Показывать силу атаки/заклинаний (АП/СПД)" },
-        tooltip = { en = "Show Attack/Spell Power (AP/SP)", ru = "Показывать силу атаки/заклинаний (АП/СПД)" },
+        label = { en = "Show Attack/Spell Power (AP/SP)", ru = "Показывать силу атаки/заклинаний" },
+        tooltip = { en = "Show Attack/Spell Power (AP/SP)", ru = "Показывать силу атаки/заклинаний" },
         default = true
       },
       
@@ -921,6 +970,13 @@ do
         default = true
       },
       
+      {
+        key = "showAddonMem",
+        label = { en = "Show addon memory usage", ru = "Показывать потребление памяти аддонами" },
+        tooltip = { en = "Show addon memory usage", ru = "Показывать потребление памяти аддонами" },
+        default = true
+      },
+
       {
         key = "update_interval_server_info",
         label = { en = "Seconds between .server info requests", ru = "Частота отправок .server info в секундах" },
@@ -991,6 +1047,7 @@ do
         default = false
       }
     }
+    -- end options
 
     -- { key = "server_info",
       -- label = { en = "Hidden .server info spam for show information as online and uptime", ru = "Невидимый спам .server info для получения инфы о задержке, онлайне и аптайме сервера" },
@@ -1018,9 +1075,9 @@ do
       end
     end
     
-    -- -----------
+    -- --------------
     -- ApplySettings
-    -- -----------
+    -- --------------
     function cfgPanel.ApplySettings()
       local textFrame = ns.textFrame --_G[ADDON_NAME.."_TextFrame"]
       local text = textFrame.text
@@ -1035,7 +1092,7 @@ do
       
       text:SetFont(type(cfg.fontName) == "string" and ADDON_FOLDER.."\\"..cfg.fontName or DEFAULT_FONT_NAME, 
         cfg.fontSize or DEFAULT_FONT_SIZE, 
-        type(cfg.fontFlags) == "string" and cfg.fontFlags or "NONE") 
+        type(cfg.fontFlags) == "string" and cfg.fontFlags or DEFAULT_FONT_FLAGS) 
         
       textFrame:SetFrameStrata(cfg.frameStrata or DEFAULT_FRAME_STRATA)
       textFrame:SetFrameLevel(cfg.frameLevel or DEFAULT_FRAME_LEVEL)
@@ -1100,11 +1157,16 @@ do
       ns.UpdateStats()
       ns.bgInfoString = ns.GetBgInfoText()
       
+      cfgPanel.aboutString = Localise({ 
+        ru = "Скрипт на тех-инфу слева в нижнем углу.\r\rНастройки: Главное меню > Интерфейс > Модификации.\r\r" .. ADDON_NOTES .. "\r\rРепозиторий: |ccc00aaff" .. GetAddOnMetadata(ADDON_NAME, "X-Repository") .. "|r\r\rЕсли это окно появилось автоматически - значит стандартная конфигурация была создана и данное окно более не появится для этого аккаунта.\r\rPS: Впервые тестирую скрипт-приветствие в подобном формате(окно с копипастом), вкурсе что навязчиво, ноооооо мб так кто-нибудь узнает об авторе если дочитает это до конца, и может даже скинет ему на пивасик/мораль/мотивацию :)\r\rСделано с душой, приятной игры.  Moriarty.", 
+        en = "Technical info script in the bottom-left corner.\r\rSettings: Game Menu > Interface > AddOns.\r\r" .. ADDON_NOTES .. "\r\rRepository: |ccc00aaff" .. GetAddOnMetadata(ADDON_NAME, "X-Repository") .. "|r\r\rIf this window appeared automatically, it means the default configuration has been created, and this window will no longer show up for this account.\r\rPS: This is my first time testing a greeting script in this format (a window with copy-paste). I know it’s a bit intrusive, but maybe someone will learn about the author by reading this to the end, and might even tip for some beer/morale/motivation :)" })
+      
       cfgPanel:Hide()
       cfgPanel:Show()
       
       textFrame.update(true, textFrame)
     end
+    -- end ApplySettings
     
     -- ------------
     -- CreateMenu
@@ -1118,7 +1180,7 @@ do
 
       local menu = CreateFrame("frame", ADDON_NAME.."_"..key.."_Frame", cfgPanel, "UIDropDownMenuTemplate")
       menu.disabled = opt.disabled
-      menu:SetPoint("TOPLEFT", cfgTitle, "BOTTOMLEFT", -25, y and -y or -(ROW_HEIGHT * cfgPanel.optionsCreated))
+      menu:SetPoint("TOPLEFT", cfgPanel.title, "BOTTOMLEFT", -25, y and -y or -(ROW_HEIGHT * cfgPanel.optionsCreated))
 
       UIDropDownMenu_SetText(menu, cfg[key] or labelText)
       --print("test", _G[menu:GetName().."Text"]:GetStringWidth())
@@ -1185,6 +1247,7 @@ do
         end)
       end
     end
+    -- end CreateMenu
     
     -- GameTooltip:HookScript("OnUpdate", function(self)
       -- local owner = self:GetOwner()
@@ -1218,7 +1281,7 @@ do
  
       local cb = CreateFrame("CheckButton", ADDON_NAME.."_"..key.."_Frame", cfgPanel, "UICheckButtonTemplate")
       cb.disabled = opt.disabled
-      cb:SetPoint("TOPLEFT", cfgTitle, "BOTTOMLEFT", -8, y and -y or -(ROW_HEIGHT * cfgPanel.optionsCreated))
+      cb:SetPoint("TOPLEFT", cfgPanel.title, "BOTTOMLEFT", -8, y and -y or -(ROW_HEIGHT * cfgPanel.optionsCreated))
       cb:SetSize(28,28)
 
       -- фрейм текста описания
@@ -1290,6 +1353,7 @@ do
         end)
       end
     end
+    -- end CreateCheckbox
 
     -- ----------------
     -- CreateEditBox
@@ -1307,7 +1371,7 @@ do
       local eb = CreateFrame("EditBox", ADDON_NAME.."_"..key.."_Frame", cfgPanel, "InputBoxTemplate")
       eb.disabled = opt.disabled
       eb:SetAutoFocus(false)
-      eb:SetPoint("TOPLEFT", cfgTitle, "BOTTOMLEFT", 0, y and -y or -(ROW_HEIGHT * cfgPanel.optionsCreated))
+      eb:SetPoint("TOPLEFT", cfgPanel.title, "BOTTOMLEFT", 0, y and -y or -(ROW_HEIGHT * cfgPanel.optionsCreated))
       eb:SetFont(GameFontNormal:GetFont(), 12)
       eb:SetSize(20, 20)
       
@@ -1430,26 +1494,104 @@ do
         end)
       end
     end
-
+    -- end CreateEditBox
+    
+    function cfgPanel.GetCharacterProfileKeyName()
+      return UnitName("player").." ~ "..GetRealmName():gsub("%b[]", ""):gsub("%s+$", "")
+    end
+    
+    --[[
     -- -------------------------
-    -- initialize defaults
+    -- LoadConfig - initialize defaults (TEST / TODO: settings per character)
     -- -------------------------
     function cfgPanel.LoadConfig()
       cfg = mrcatsoul_Mori_EdgeInfo_Data or cfg
       mrcatsoul_Mori_EdgeInfo_Data = cfg
-      --_G[ADDON_NAME] = cfg
       
+      -- 1. Гарантируем, что глобальная база вообще существует
+      -- mrcatsoul_Mori_EdgeInfo_Data = mrcatsoul_Mori_EdgeInfo_Data or {}
+      
+      -- 2. Получаем ключ (Имя - Реалм)
+      local charKey = cfgPanel.GetCharacterProfileKeyName()
+      
+      if cfg[charKey] == nil then
+        print("Инициализация конфига для персонажа")
+        cfg[charKey] = {}
+        for k, v in pairs(cfg) do
+          if type(v) == "boolean" then
+            cfg[charKey][k] = v
+            cfg[k] = nil
+            print("delete obsolete boolean")
+          end
+        end
+      end
+      
+      -- 3. Проверяем, есть ли данные для этого конкретного перса
+      -- Если нет — создаем пустую таблицу
+      if not mrcatsoul_Mori_EdgeInfo_Data[charKey] then
+        mrcatsoul_Mori_EdgeInfo_Data[charKey] = {}
+      end
+      
+      -- 4. Перенаправляем локальную переменную cfg на таблицу персонажа
+      cfg = mrcatsoul_Mori_EdgeInfo_Data[charKey]
+      
+      -- Заполняем дефолтные значения в таблицу персонажа, если их там нет
       for _, opt in ipairs(cfgPanel.options) do
         if cfg[opt.key] == nil and opt.default ~= nil then
-          cfg[opt.key] = type(opt.default) == "table" and opt.default[1] or opt.default
-          print(tostring(opt.key), tostring(opt.default))
+          -- Исправляем логику выбора дефолта
+          if type(opt.default) == "table" then
+            cfg[opt.key] = opt.default[1]
+          else
+            cfg[opt.key] = opt.default
+          end
+        end
+      end
+      
+      -- Флаг загрузки теперь тоже хранится внутри профиля персонажа
+      if not cfg.lockedAndLoaded then
+        cfg.lockedAndLoaded = true
+        DelayedCall(4, function()
+          if not UnitAffectingCombat("player") then
+            cfgPanel.ShowAbout()
+          else
+            cfgPanel:RegisterEvent("PLAYER_REGEN_ENABLED")
+          end
+        end)
+      end
+
+      cfgPanel.ApplySettings()
+      
+      DelayedCall(0.1, function()
+        print(ADDON_NAME_LOCALE, Localise({ en = "loaded", ru = "загружен" })..".", cfgPanel.MakeChatLink(Localise({ en = "Settings", ru = "Настройки" }), "Settings"), " | ", cfgPanel.MakeChatLink(Localise({ en = "About", ru = "Об аддоне" }), "About"))
+      end)
+      
+      return cfg
+    end
+    ]]
+
+    -- -------------------------
+    -- LoadConfig - initialize defaults
+    -- -------------------------
+    function cfgPanel.LoadConfig()
+      cfg = mrcatsoul_Mori_EdgeInfo_Data or cfg
+      mrcatsoul_Mori_EdgeInfo_Data = cfg
+
+      for _, opt in ipairs(cfgPanel.options) do
+        if cfg[opt.key] == nil and opt.default ~= nil then
+          cfg[opt.key] = opt.default or type(opt.default) == "table" and opt.default[1]
+          --print(tostring(opt.key), tostring(opt.default))
         end
       end
       
       if not cfg.lockedAndLoaded then
         cfg.lockedAndLoaded = true
         DelayedCall(4, function()
-          StaticPopup_Show(ADDON_NAME .. "_TEST1") -- test
+          if not UnitAffectingCombat("player") then
+            cfgPanel.ShowAbout()
+          else
+            cfgPanel:RegisterEvent("PLAYER_REGEN_ENABLED")
+          end
+          --cfgPanel.PrintAbout()
         end)
       end
 
@@ -1462,7 +1604,9 @@ do
       
       return cfg
     end
+    -- end LoadConfig
     
+    -- создаем меню опций только если пользователь полез чето настраивать
     InterfaceOptionsFrame:HookScript("onshow", function()
       cfgPanel.CreateOptionsUI()
     end)
@@ -1492,6 +1636,9 @@ do
       -- end
     -- end
     
+    -- ----------------
+    -- SetDisabledOption
+    -- ----------------
     function cfgPanel.SetDisabledOption(key, val)
       if not key then return end
       local frame = _G[ADDON_NAME.."_"..key.."_Frame"]
@@ -1532,14 +1679,17 @@ do
         frame:SetTextColor(r, g, b)
       end
     end
+    -- end SetDisabledOption
     
     function cfgPanel.SetDisabledAllOptions(val)
       for _, opt in pairs(cfgPanel.options) do
         cfgPanel.SetDisabledOption(opt.key, val)
       end
     end
-    --_G.SetDisabledAllOptions = cfgPanel.SetDisabledAllOptions
-    
+
+    -- ----------------
+    -- CreateOptionsUI
+    -- ----------------
     function cfgPanel.CreateOptionsUI()
       if cfgPanel.optionsCreated then return end
       cfgPanel.optionsCreated = 1
@@ -1586,7 +1736,7 @@ do
       local resetCount = 0
       local reset = CreateFrame("Button", ADDON_NAME.."_ResetBtn", cfgPanel, "UIPanelButtonTemplate")
       reset:SetSize(140, 22)
-      reset:SetPoint("RIGHT", titleTip, "RIGHT", 0, -35)
+      reset:SetPoint("RIGHT", cfgPanel.titleTip, "RIGHT", 0, -32)
       reset:SetText(Localise({ en = "Reset to defaults", ru = "Сбросить к умолчаниям" }))
       reset:SetScript("OnClick", function(self)
         if resetCount == 0 then
@@ -1601,7 +1751,7 @@ do
         if resetCount >= 5 then
           resetCount = 0
           for _, opt in ipairs(cfgPanel.options) do
-            cfg[opt.key] = type(opt.default) == "table" and opt.default[1] or opt.default
+            cfg[opt.key] = opt.default or type(opt.default) == "table" and opt.default[1]
           end
           cfgPanel.ApplySettings()
           UIFrameFlashStop(cfgPanel)
@@ -1631,6 +1781,35 @@ do
       cfgPanel:Hide()
       cfgPanel:Show()
     end
+    -- end CreateOptionsUI
+    
+    -- -------------------
+    -- loading events
+    -- -------------------
+    cfgPanel:RegisterEvent("ADDON_LOADED")
+    cfgPanel:SetScript("onevent", function(self, event, ...)
+      if event == "ADDON_LOADED" then
+        if ... == "RezTimer" then
+          RezTimer_Data = _G.RezTimer_Data
+        elseif ... == "CustomFrames" then
+          bg_statistics = _G.bg_statistics
+        elseif ... == ADDON_NAME then
+          cfg = self.LoadConfig()
+          DelayedCall(0.1, function() 
+            ns.textFrame:SetScript("OnUpdate", function(self, ...) 
+              self.update(nil, self, ...) 
+            end) 
+          end)
+        end
+      elseif event == "PLAYER_REGEN_ENABLED" then
+        self:UnregisterEvent(event)
+        self.ShowAbout()
+      elseif event == "PLAYER_REGEN_DISABLED" then
+        self:UnregisterEvent(event)
+        self.HideAbout()
+      end
+    end)
+    -- end loading events
   end
   -- end settings
   
@@ -1891,19 +2070,21 @@ do
     
     local textFrame = CreateFrame("frame", ADDON_NAME.."_TextFrame")
     ns.textFrame = textFrame
-    textFrame:SetFrameStrata(cfg.frameStrata or "high")
+    textFrame:SetFrameStrata(cfg.frameStrata or DEFAULT_FRAME_STRATA)
     textFrame:SetFrameLevel(cfg.frameLevel or DEFAULT_FRAME_LEVEL)
 
-    local text = textFrame:CreateFontString(nil, "background")
-    text:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1, 1)
-    --text:SetPoint("LEFT", "ActionButton1", "LEFT", -255, -7)
-    --text:SetFont([[Interface\addons\CustomFrames\hooge test1.ttf]], 11, "OUTLINE, MONOCHROME")
-    text:SetFont(type(cfg.fontName) == "string" and ADDON_FOLDER.."\\"..cfg.fontName or DEFAULT_FONT_NAME, DEFAULT_FONT_SIZE)
-    if cfg.fontShadow then text:SetShadowOffset(1, -1) end
-    text:SetTextColor(1, 1, 1, 1)
-    text:SetJustifyH("LEFT")
-    --text:SetJustifyV("BOTTOM")
-    textFrame.text = text
+    do
+      local text = textFrame:CreateFontString(nil, "background")
+      text:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1, 1)
+      --text:SetPoint("LEFT", "ActionButton1", "LEFT", -255, -7)
+      --text:SetFont([[Interface\addons\CustomFrames\hooge test1.ttf]], 11, "OUTLINE, MONOCHROME")
+      text:SetFont(type(cfg.fontName) == "string" and ADDON_FOLDER.."\\"..cfg.fontName or DEFAULT_FONT_NAME, DEFAULT_FONT_SIZE)
+      if cfg.fontShadow then text:SetShadowOffset(1, -1) end
+      text:SetTextColor(1, 1, 1, 1)
+      text:SetJustifyH("LEFT")
+      --text:SetJustifyV("BOTTOM")
+      textFrame.text = text
+    end
 
     function f.truncate(num, digits)
       local mult = 10 ^ (digits or 1)
@@ -2158,142 +2339,6 @@ do
 
       return tconcat(parts, INDENT_BIG)
     end
-
-    --[[
-    ns.StatsTextParts = {}
-    function ns.GetStatsText()
-      -- 1. Определяем базовые значения
-      local spdOrAp, crit, haste, hit = 0, 0, 0, 0
-      local attackPowerLabel = ATTACK_POWER -- По умолчанию AP
-
-      if showSpellPower then
-        attackPowerLabel = SPELL_POWER
-        
-        -- Start at 2 to skip physical damage
-        spdOrAp = GetSpellBonusDamage(2)
-        crit = GetSpellCritChance(2)
-        
-        for i = 3, MAX_SPELL_SCHOOLS do
-          spdOrAp = min(spdOrAp, GetSpellBonusDamage(i))
-          crit = min(crit, GetSpellCritChance(i))
-        end
-        
-        haste = GetCombatRating(CR_HASTE_SPELL)
-        hit = GetCombatRating(CR_HIT_SPELL)
-        
-      elseif showAttackPower or isHunter then
-        attackPowerLabel = ATTACK_POWER
-        
-        local base, pos, neg
-        if isHunter then
-          base, pos, neg = UnitRangedAttackPower("player")
-          crit = GetRangedCritChance()
-          haste = GetCombatRating(CR_HASTE_RANGED)
-          hit = GetCombatRating(CR_HIT_RANGED)
-        else
-          base, pos, neg = UnitAttackPower("player")
-          crit = GetCritChance()
-          haste = GetCombatRating(CR_HASTE_MELEE)
-          hit = GetCombatRating(CR_HIT_MELEE)
-        end
-        spdOrAp = base + pos - neg
-      end
-
-      -- 2. Определяем цвета
-      local hexAP, hexCrit, hexHaste, hexHit
-      
-      if showAttackPower or isHunter then
-        hexAP = f.RGBGradient(1 - spdOrAp / 12000)
-        hexHaste = (haste == 0) and "999999" or "ffffff"
-      else -- showSpellPower
-        hexAP = f.RGBGradient(1 - spdOrAp / 3500)
-        hexHaste = f.RGBGradient(1 - haste / 50)
-      end
-      
-      hexHit = f.RGBGradient(1 - hit / 10)
-      hexCrit = f.RGBGradient(1 - crit / 50)
-
-      -- 3. Собираем список всех возможных статов
-      -- Структура элемента: { check = true/false, label = "Название", val = "Значение", color = "HEX" }
-      
-      local res = GetCombatRating(16)
-      local resColor = f.RGBGradient(1 - tonumber(res) / 1414)
-      
-      local _, _, armor, posBuff, negBuff = UnitArmor("player")
-      local armorColor = (posBuff ~= 0 and "00f100") or (negBuff ~= 0 and "f10000") or "f1f1a1"
-
-      -- Форматируем значения заранее
-      --local critStr = format("%.0f%s", crit, PERCENT_SIGN) --(showSpellPower or showAttackPower) and truncate(crit) 
-      --local parryVal = format("%.0f%s", GetParryChance(), PERCENT_SIGN) --truncate(GetParryChance(), 1)
-      --local dodgeVal = format("%.0f%s", GetDodgeChance(), PERCENT_SIGN) --truncate(GetDodgeChance(), 0) 
-      --armor = format("%s%s", format("%.1f", armor / 1000):gsub("%.0", ""), "k")
-
-      local statsList = {
-        { 
-          check = cfg.showAttackPowerOrSpd, 
-          label = attackPowerLabel, 
-          val = spdOrAp, 
-          color = hexAP 
-        },
-        { 
-          check = cfg.showResilience, 
-          label = RES, 
-          val = res, 
-          color = resColor 
-        },
-        { 
-          check = cfg.showCrit, 
-          label = CRIT, 
-          val = format("%.0f%s", crit, PERCENT_SIGN), --(showSpellPower or showAttackPower) and truncate(crit) 
-          color = hexCrit 
-        },
-        { 
-          check = cfg.showHaste, 
-          label = HASTE, 
-          val = haste, 
-          color = hexHaste 
-        },
-        { 
-          check = cfg.showHit, 
-          label = HIT, 
-          val = hit, 
-          color = hexHit 
-        },
-        { 
-          check = cfg.showParry, 
-          label = PARRY, 
-          val = format("%.0f%s", GetParryChance(), PERCENT_SIGN), --truncate(GetParryChance(), 1)
-          color = "f1f1a1" 
-        },
-        { 
-          check = cfg.showDodge, 
-          label = DODGE, 
-          val = format("%.0f%s", GetDodgeChance(), PERCENT_SIGN), --truncate(GetDodgeChance(), 0) 
-          color = "f1f1a1" 
-        },
-        { 
-          check = cfg.showArmor, 
-          label = ARMOR, 
-          val = format("%s%s", format("%.1f", armor / 1000):gsub("%.0", ""), "k"), 
-          color = armorColor 
-        },
-      }
-
-      -- 4. Формируем итоговую строку
-      wipe(ns.StatsTextParts)
-      for _, stat in ipairs(statsList) do
-        if stat.check then
-          -- Если label совпадает с AP/SP, выводим "Label: Val", иначе просто "Label: Val" с отступом
-          -- В твоем старом коде для первого стата (AP/SP) отступа не было.
-          local textPart = format("%s:%s|cff%s%s|r", stat.label, INDENT_SMALL, stat.color, stat.val)
-          tinsert(ns.StatsTextParts, textPart)
-        end
-      end
-      
-      -- Соединяем все части через отступ (INDENT)
-      return tconcat(ns.StatsTextParts, INDENT_BIG or "   ")
-    end
-    ]]
     
     -- Вспомогательная функция для вставки (чтобы не дублировать логику format)
     local function AddStat(label, val, color)
@@ -2338,6 +2383,8 @@ do
         end
         spdOrAp = base + pos - neg
       end
+      
+      local cfg = cfg
 
       -- 3. Прямая вставка статов (без создания промежуточной таблицы statsList)
       if cfg.showAttackPowerOrSpd then
@@ -2353,7 +2400,7 @@ do
       end
 
       if cfg.showCrit then
-        AddStat(CRIT, format("%.2f%%", crit), f.RGBGradient(1 - crit / 50))
+        AddStat(CRIT, format("%s%%", tonumber(format("%.1f", crit))), f.RGBGradient(1 - crit / 50))
       end
 
       if cfg.showHaste then
@@ -2366,11 +2413,11 @@ do
       end
 
       if cfg.showParry then
-        AddStat(PARRY, format("%.1f%%", GetParryChance()), "f1f1a1")
+        AddStat(PARRY, format("%s%%", tonumber(format("%.1f", GetParryChance()))), "f1f1a1")
       end
 
       if cfg.showDodge then
-        AddStat(DODGE, format("%.1f%%", GetDodgeChance()), "f1f1a1")
+        AddStat(DODGE, format("%s%%", tonumber(format("%.1f", GetDodgeChance()))), "f1f1a1")
       end
 
       if cfg.showArmor then
@@ -2452,7 +2499,6 @@ do
     f:RegisterEvent("ZONE_CHANGED")
     f:RegisterEvent("CHAT_MSG_SYSTEM")
     f:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
-    f:RegisterEvent("ADDON_LOADED")
     f:RegisterEvent("WHO_LIST_UPDATE")
 
     f:SetScript("OnEvent", function(self, event, ...)
@@ -2524,18 +2570,6 @@ do
           ns.UpdateStats()
       elseif event == "PLAYER_DAMAGE_DONE_MODS" then
         ns.UpdateStats()
-      elseif event == "ADDON_LOADED" then
-        if ... == "RezTimer" then
-          RezTimer_Data = _G.RezTimer_Data
-        elseif ... == "CustomFrames" then
-          bg_statistics = _G.bg_statistics
-        elseif ... == ADDON_NAME then
-          -- cfg = mrcatsoul_Mori_EdgeInfo_Data or cfg
-          -- mrcatsoul_Mori_EdgeInfo_Data = cfg
-          -- cfg.fontSize = cfg.fontSize or DEFAULT_FONT_SIZE
-          -- cfg.updateIntervalGlobal = cfg.updateIntervalGlobal or UPDATE_INTERVAL_GLOBAL_DEFAULT
-          cfg = ns.cfgPanel.LoadConfig()
-        end
       elseif event == "UPDATE_BATTLEFIELD_STATUS" then
         ns.bgInfoString = ns.GetBgInfoText()
         textFrame.update(true, textFrame)
@@ -2562,7 +2596,7 @@ do
         playerGUID = UnitGUID("player")
         --SetWhoToUI(1)
         --ns.cfgPanel.ApplySettings()
-        DelayedCall(0.1, function() textFrame:SetScript("OnUpdate", function(...) textFrame.update(nil, ...) end) end)
+        --DelayedCall(0.1, function() textFrame:SetScript("OnUpdate", function(...) textFrame.update(nil, ...) end) end)
       elseif event == "PLAYER_ENTERING_WORLD" then
         --print(event, IsSpellPowerClass(), IsHealerClass())
         textFrame.needWaitServerInfo = nil
@@ -2624,8 +2658,8 @@ do
         end
       elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         local subevent, srcGuid = select(2, ...)
-        --print(subevent, srcGuid)
         if subevent:find("SPELL_") and srcGuid == playerGUID then
+          --print(subevent, srcGuid)
           local spellid, spellname = select(9, ...)
           if spellname and not ns.spellIcons[spellname] then
             ns.spellIcons[spellname] = select(3, GetSpellInfo(spellid))
@@ -2723,6 +2757,8 @@ do
       self.t = self.t + e
       self.servInfoTime = self.servInfoTime + e
       self.SendWhoTime = self.SendWhoTime + e
+      
+      local cfg = cfg or {}
 
       local updateIntervalGlobal = cfg.updateIntervalGlobal or UPDATE_INTERVAL_GLOBAL_DEFAULT
 
@@ -2747,9 +2783,14 @@ do
       end
 
       -- === ПОДГОТОВКА ДАННЫХ (Только то, что реально нужно сейчас) ===
-
-      local fps = GetFramerate()
-      local fpsColor = cfg.showFPS and f.GetCachedColor("fps", fps, 60) or nil
+      local f, ns, format, tonumber = f, ns, format, tonumber
+      
+      local fps
+      local fpsColor 
+      if cfg.showFPS then
+        fps = GetFramerate()
+        fpsColor = cfg.showFPS and f.GetCachedColor("fps", fps, 60) or nil
+      end
 
       local latency
       local latColor
@@ -2758,15 +2799,23 @@ do
         latColor = f.GetCachedColor("latency", latency, 150)
       end
 
-      local responce = cfg.showRTT and f.GetSmoothedValue("responce", ns.responceTime) or nil
-      local respColor = (responce and tonumber(responce)) and f.GetCachedColor("responce", responce, 150) or "f1f1a1"
+      local responce 
+      local respColor 
+      if cfg.showRTT then
+        responce = cfg.showRTT and f.GetSmoothedValue("responce", ns.responceTime) or nil
+        respColor = (responce and tonumber(responce)) and f.GetCachedColor("responce", responce, 150) or "f1f1a1"
+      end
 
-      local srvDelayVal = cfg.showServerLatency and f.GetSmoothedValue("srvDelay", ns.serverDelay) or nil
-      local srvDelayColor = (srvDelayVal and tonumber(srvDelayVal)) and f.GetCachedColor("srvDelay", srvDelayVal, 150) or "f1f1a1"
+      local srvDelayVal
+      local srvDelayColor
+      if cfg.showServerLatency then
+        srvDelayVal = cfg.showServerLatency and f.GetSmoothedValue("srvDelay", ns.serverDelay) or nil
+        srvDelayColor = (srvDelayVal and tonumber(srvDelayVal)) and f.GetCachedColor("srvDelay", srvDelayVal, 150) or "f1f1a1"
+      end
 
       -- Частицы
-      local particleDensity = 0
-      local particleColor = "ffffff"
+      local particleDensity
+      local particleColor
       if cfg.showParticles or cfg.showParticleDensityBar then
         particleDensity = tonumber(GetCVar("particleDensity")) * 100
         local p_perc = particleDensity / 100
@@ -2776,27 +2825,34 @@ do
       end
 
       -- Скорость
-      local speed = 0
-      local speedColor = "888888"
+      local speed
+      local speedColor
       if cfg.showMovementSpeed then
         speed = GetUnitSpeed("player") / 7 * 100
         speedColor = (speed > 0) and f.GetCachedColor("speed", speed, 250) or "888888"
       end
 
       -- Спеллы
-      local spellDelayStr = ""
+      local spellDelayStr
       if cfg.showSpellDelay and ns.lastUsedSpellName then
         local spellDelay = f.GetSmoothedValue("spellDelay", ns.GetSpellUseDelay())
-        local spellDelayColor = tonumber(spellDelay) and f.GetCachedColor("spell", spellDelay, 150) or "f1f1a1"
-        
-        local icon = ns.spellIcons[ns.lastUsedSpellName] or ns.INV_Misc_QuestionMark
-        local spellIconStr = format(" |T%s:%d|t", icon, (cfg.fontSize or DEFAULT_FONT_SIZE) + 1)
-        
-        local lastSpellShort = ns.lastUsedSpellName
-        if #ns.lastUsedSpellName:gsub("[\128-\191]", "") > 10 then
-          lastSpellShort = utf8sub(ns.lastUsedSpellName, 10, true)
+        if spellDelay then
+          local spellDelayColor = tonumber(spellDelay) and f.GetCachedColor("spell", spellDelay, 150) or "f1f1a1"
+          
+          local icon = ns.spellIcons[ns.lastUsedSpellName] or ns.INV_Misc_QuestionMark
+          local spellIconStr = format(" |T%s:%d|t", icon, (cfg.fontSize or DEFAULT_FONT_SIZE) + 1)
+          
+          local lastSpellShort = ns.lastUsedSpellName
+          if #ns.lastUsedSpellName:gsub("[\128-\191]", "") > 10 then
+            lastSpellShort = utf8sub(ns.lastUsedSpellName, 10, true)
+          end
+          spellDelayStr = format("%s:%s|ccc%s%-4s%s|r", SPELL, INDENT_SMALL, spellDelayColor, spellDelay .. spellIconStr, cfg.showSpellName and lastSpellShort or "")
         end
-        spellDelayStr = format("%s:%s|ccc%s%-4s%s|r", SPELL, INDENT_SMALL, spellDelayColor, spellDelay .. spellIconStr, cfg.showSpellName and lastSpellShort or "")
+      end
+      
+      local addonMem
+      if cfg.showAddonMem then
+        addonMem = ns.GetAddonMem and select(2, ns.GetAddonMem())
       end
 
       -- === СБОРКА СТРОК ===
@@ -2870,7 +2926,7 @@ do
       if cfg.showRTT and responce then 
         row[rIdx] = format("RTT:%s|ccc%s%-3s|r", INDENT_SMALL, respColor, responce); rIdx = rIdx + 1 
       end
-      if spellDelayStr ~= "" then 
+      if spellDelayStr and spellDelayStr ~= "" then 
         row[rIdx] = spellDelayStr; rIdx = rIdx + 1 
       end
       if cfg.showServerLatency and srvDelayVal then 
@@ -2892,6 +2948,10 @@ do
 
       if cfg.showMovementSpeed then
         row[rIdx] = format("%s:%s|ccc%s%d%s|r", MOVE_SPEED, INDENT_SMALL, speedColor, speed, PERCENT_SIGN); rIdx = rIdx + 1
+      end
+      
+      if cfg.showAddonMem and addonMem then
+        row[rIdx] = format("%s:%s|cccf1f1a1%s|r", MEMORY, INDENT_SMALL, addonMem); rIdx = rIdx + 1 
       end
 
       if rIdx > 1 then
@@ -3021,8 +3081,10 @@ do
     local MAINMENUBAR_LATENCY_LABEL = MAINMENUBAR_LATENCY_LABEL
     local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
     local TOTAL_MEM_KB_ABBR = TOTAL_MEM_KB_ABBR
-    local NEWBIE_TOOLTIP_MEMORY = NEWBIE_TOOLTIP_MEMORY
+    local TOTAL_MEM_MB_ABBR = TOTAL_MEM_MB_ABBR
     local ADDON_MEM_KB_ABBR = ADDON_MEM_KB_ABBR
+    local GameTooltip_SetDefaultAnchor, GameTooltip_AddNewbieTip = GameTooltip_SetDefaultAnchor, GameTooltip_AddNewbieTip
+    local NEWBIE_TOOLTIP_LATENCY, NEWBIE_TOOLTIP_FRAMERATE, NEWBIE_TOOLTIP_MEMORY = NEWBIE_TOOLTIP_LATENCY, NEWBIE_TOOLTIP_FRAMERATE, NEWBIE_TOOLTIP_MEMORY
     local GetNetStats = GetNetStats
     local UNKNOWN = UNKNOWN
     local playerName = UnitName("player")
@@ -3043,20 +3105,17 @@ do
     local DND_ON = L=="ruRU" and "Включено ДНД" or "DND on"
     local NAME_UNKNOWN = L=="ruRU" and "Имя неизвестно" or "Name unknown"
     
-    ns.responceTime = "-"
-
     local f = CreateFrame("frame")
     f:SetScript("OnEvent", function(self, event, ...) return self[event](self, ...) end)
     f:RegisterEvent("CHAT_MSG_ADDON")
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
     f:RegisterEvent("UI_ERROR_MESSAGE")
     f:RegisterEvent("PLAYER_LEVEL_UP")
-    --f:RegisterEvent("ADDON_LOADED")
-    
+
     function f:UI_ERROR_MESSAGE(arg1)
       if not ns.cannotSend and (arg1:find("Вы не можете использовать личные сообщения", 1, true) or arg1:find("You cannot whisper", 1, true)) then
         ns.cannotSend = true
-        ns.responceTime, responceReceivedTime, lastRequestSendTime = "-", 0, nil
+        ns.responceTime, responceReceivedTime, lastRequestSendTime = nil, 0, nil
         DelayedCall(60, function()
           ns.cannotSend = nil
         end)
@@ -3067,23 +3126,14 @@ do
       --print(event, ...)
       ns.cannotSend = nil
     end
-    
-    function f:ADDON_LOADED(...)
-      -- if ... ~= ADDON_NAME then return end
-      -- NUM_ADDONS_TO_DISPLAY = cfg.num_addons_to_display or NUM_ADDONS_TO_DISPLAY
-      -- --print(NUM_ADDONS_TO_DISPLAY, cfg.num_addons_to_display)
-      -- for i = 1, NUM_ADDONS_TO_DISPLAY do
-        -- f.topAddOns[i] = { value = 0, name = "" }
-      -- end
-    end
 
     function f:PLAYER_ENTERING_WORLD()
-      ns.responceTime, responceReceivedTime, lastRequestSendTime = "-", 0, nil
+      ns.responceTime, responceReceivedTime, lastRequestSendTime = nil, 0, nil
     end
 
     function f:CHAT_MSG_ADDON(...)
       local prefix, text, channel, sender = ...
-      
+      --print(...)
       if prefix == ADDON_NAME..":rtt_test" and lastRequestSendTime and tostring(lastRequestSendTime) == tostring(text) --[[and channel == "WHISPER"]] and playerName and playerName == sender then
         responceReceivedTime = GetTime()
         ns.responceTime = modf((responceReceivedTime - lastRequestSendTime) *1000) 
@@ -3126,7 +3176,7 @@ do
           s.newRequestTime = 0
           responceReceivedTime = nil
           lastRequestSendTime = _time
-          --print("|cffffff00sending...|r")
+          --print("|cffffff00sending...|r",playerName)
           SendAddonMessage(ADDON_NAME..":rtt_test", tostring(_time), chan, playerName)
         else
           ns.responceTime = "|cffff0000"..DND_ON.."|r"
@@ -3170,24 +3220,74 @@ do
       f.topAddOns[i] = { value = 0, name = "" }
     end
     
+    function f.GetAddonMem()
+      local num_addons_to_display = cfg.num_addons_to_display or NUM_ADDONS_TO_DISPLAY
+     
+      -- AddOn mem usage
+      for i = 1, num_addons_to_display, 1 do
+        f.topAddOns[i].value = 0
+      end
+    
+      UpdateAddOnMemoryUsage()
+      
+      local totalMem = 0
+
+      for i = 1, GetNumAddOns(), 1 do
+        local mem = GetAddOnMemoryUsage(i)
+        totalMem = totalMem + mem
+        
+        for j = 1, num_addons_to_display, 1 do
+          if mem > f.topAddOns[j].value then
+            for k = num_addons_to_display, 1, -1 do
+              if k == j then
+                local addonName = GetAddOnInfo(i):gsub("_Atom","HugeDick")
+                if addonName == ADDON_NAME then addonName = "|cff44ffff"..addonName.."|r" end
+                f.topAddOns[k].value = mem
+                f.topAddOns[k].name = addonName
+                break
+              elseif k ~= 1 then
+                f.topAddOns[k].value = f.topAddOns[k-1].value
+                f.topAddOns[k].name = f.topAddOns[k-1].name
+              end
+            end
+            break
+          end
+        end
+      end
+      
+      local color = f.RGBGradient(totalMem / 40000)
+      local totalMemStr
+      
+      if totalMem > 1000 then
+        totalMemStr = format("%.2f MB", totalMem / 1000)
+      else
+        totalMemStr = format("%.0f KB", totalMem) 
+      end
+      
+      totalMemStr = format("|cff%s%s|r", color, totalMemStr) -- "|cff".. color .. totalMemStr .. "|r"
+      
+      return totalMem, totalMemStr
+    end
+    ns.GetAddonMem = f.GetAddonMem
+
     function f.GameMenu_OnEnter()
-      local mouseFocus = GetMouseFocus()
-      if mouseFocus and mouseFocus.GetName and mouseFocus == MainMenuMicroButton and GameTooltip:IsShown() then
+      --local mouseFocus = GetMouseFocus()
+      --if mouseFocus and mouseFocus.GetName and mouseFocus == MainMenuMicroButton and GameTooltip:IsShown() then
         GameTooltip:ClearLines()
         --print("GameMenu_OnEnter")
         
-        local string = ""
+        local str = ""
         local i, j, k = 0, 0, 0
        
         GameTooltip_SetDefaultAnchor(GameTooltip, MainMenuMicroButton)
         
-        GameTooltip_AddNewbieTip(MainMenuMicroButton, MainMenuMicroButton.tooltipText .." [".. ADDON_NAME_META .. "]", 1.0, 1.0, 1.0, MainMenuMicroButton.newbieText)
+        GameTooltip_AddNewbieTip(MainMenuMicroButton, format("%s [%s]", MainMenuMicroButton.tooltipText, ADDON_NAME_META), 1.0, 1.0, 1.0, MainMenuMicroButton.newbieText)
        
         -- latency
         local bandwidthIn, bandwidthOut, latency = GetNetStats()
-        string = format(MAINMENUBAR_LATENCY_LABEL, latency)
+        str = format(MAINMENUBAR_LATENCY_LABEL, latency)
         GameTooltip:AddLine("\n")
-        GameTooltip:AddLine(string, 1.0, 1.0, 1.0)
+        GameTooltip:AddLine(str, 1.0, 1.0, 1.0)
         
         if SHOW_NEWBIE_TIPS == "1" then
           GameTooltip:AddLine(NEWBIE_TOOLTIP_LATENCY, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1)
@@ -3196,14 +3296,15 @@ do
         GameTooltip:AddLine("\n")
        
         -- framerate
-        string = format(MAINMENUBAR_FPS_LABEL, GetFramerate())
-        GameTooltip:AddLine(string, 1.0, 1.0, 1.0)
+        str = format(MAINMENUBAR_FPS_LABEL, GetFramerate())
+        GameTooltip:AddLine(str, 1.0, 1.0, 1.0)
         if SHOW_NEWBIE_TIPS == "1" then
           GameTooltip:AddLine(NEWBIE_TOOLTIP_FRAMERATE, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1)
         end
-       
+
+        --[[
         -- AddOn mem usage
-        for i = 1, (cfg.num_addons_to_display or NUM_ADDONS_TO_DISPLAY), 1 do
+        for i = 1, num_addons_to_display, 1 do
           f.topAddOns[i].value = 0
         end
        
@@ -3215,9 +3316,9 @@ do
           local mem = GetAddOnMemoryUsage(i)
           totalMem = totalMem + mem
           
-          for j = 1, (cfg.num_addons_to_display or NUM_ADDONS_TO_DISPLAY), 1 do
+          for j = 1, num_addons_to_display, 1 do
             if mem > f.topAddOns[j].value then
-              for k = (cfg.num_addons_to_display or NUM_ADDONS_TO_DISPLAY), 1, -1 do
+              for k = num_addons_to_display, 1, -1 do
                 if k == j then
                   local addonName = GetAddOnInfo(i):gsub("_Atom","HugeDick")
                   if addonName == ADDON_NAME then addonName = "|cff44ffff"..addonName.."|r" end
@@ -3233,30 +3334,35 @@ do
             end
           end
         end
+        ]]
+        
+        local totalMem = f.GetAddonMem() -- 5.7.26
        
         if totalMem > 0 then
-          local color = f.RGBGradient(totalMem/40000)
+          local color = f.RGBGradient(totalMem / 40000)
           
           if totalMem > 1000 then
-            totalMem = totalMem / 1000
-            string = format(TOTAL_MEM_MB_ABBR, totalMem)
+            str = format(TOTAL_MEM_MB_ABBR, totalMem / 1000)
           else
-            string = format(TOTAL_MEM_KB_ABBR, totalMem) 
+            str = format(TOTAL_MEM_KB_ABBR, totalMem) 
           end
           
-          string = "|cff".. color .. string .. "|r"
+          str = format("|cff%s%s|r", color, str)
+          --str = "|cff".. color .. str .. "|r"
        
           GameTooltip:AddLine("\n")
           
-          GameTooltip:AddLine(string, 1.0, 1.0, 1.0)
+          GameTooltip:AddLine(str, 1.0, 1.0, 1.0)
           
           if SHOW_NEWBIE_TIPS == "1" then
             GameTooltip:AddLine(NEWBIE_TOOLTIP_MEMORY, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1)
           end
           
           local size
-          
-          for i = 1, (cfg.num_addons_to_display or NUM_ADDONS_TO_DISPLAY), 1 do
+                 
+          local num_addons_to_display = cfg.num_addons_to_display or NUM_ADDONS_TO_DISPLAY
+
+          for i = 1, num_addons_to_display, 1 do
             if f.topAddOns[i].value == 0 then
               break
             end
@@ -3265,24 +3371,24 @@ do
             
             color = f.RGBGradient(size/5000)
             
-            if ( size > 1000 ) then
+            if size > 1000 then
               size = size / 1000
-              string = format(ADDON_MEM_MB_ABBR, size, f.topAddOns[i].name)
+              str = format(ADDON_MEM_MB_ABBR, size, f.topAddOns[i].name)
             else
-              string = format(ADDON_MEM_KB_ABBR, size, f.topAddOns[i].name)
+              str = format(ADDON_MEM_KB_ABBR, size, f.topAddOns[i].name)
             end
             
-            GameTooltip:AddLine("|cff989898"..i..".|r |cff"..color..""..string.."|r", 1.0, 1.0, 1.0)
+            GameTooltip:AddLine(format("|cff989898%d.|r |cff%s%s|r", i, color, str), 1.0, 1.0, 1.0)
           end
         end
        
         GameTooltip:Show()
-      end
+      --end
     end
 
     function f.GameMenu_AddRTT()
-      local mouseFocus = GetMouseFocus()
-      if mouseFocus and mouseFocus.GetName and mouseFocus:GetName() == "MainMenuMicroButton" then
+      --local mouseFocus = GetMouseFocus()
+      --if mouseFocus and mouseFocus.GetName and mouseFocus:GetName() == "MainMenuMicroButton" then
         for i = 1, GameTooltip:NumLines() do
           local text = _G[GameTooltip:GetName().."TextLeft"..i]:GetText()
           if text and text:find(MAINMENUBAR_LATENCY_LABEL:match("^(.-):")) then
@@ -3290,31 +3396,40 @@ do
             local _string = format(MAINMENUBAR_LATENCY_LABEL, latency)
             local textRegion = _G[GameTooltip:GetName().."TextLeft"..i]
             local color = tonumber(ns.responceTime) and f.RGBGradient(ns.responceTime/150) or "ffffff"
-            textRegion:SetText(_string..", RTT: |cff"..color..ns.responceTime.."|r")
+            --textRegion:SetText(_string..", RTT: |cff"..color..ns.responceTime.."|r")
+            textRegion:SetText(format("%s, RTT: |cff%s%s|r", _string, color, ns.responceTime))
             GameTooltip:Show()
+            --print("GameMenu_AddRTT")
             break
           end
         end
-      end
+      --end
     end
 
     -- GameTooltip:HookScript("onshow", function()
       -- GameMenu_AddRTT()
     -- end)
+    
+    function f.ModifyTooltipText()
+      if GameTooltip:IsShown() and GameTooltip:GetOwner() == MainMenuMicroButton then
+        f.GameMenu_OnEnter()
+        f.GameMenu_AddRTT()
+      end
+    end
 
     f.t = 0
-    GameTooltip:HookScript("onupdate", function(_, e)
+    GameTooltip:HookScript("onupdate", function(self, e)
       f.t = f.t + e
       local SECONDS_GAME_MENU_UPDATE_INTERVAL = cfg.seconds_game_menu_update_interval or SECONDS_GAME_MENU_UPDATE_INTERVAL
       if f.t < SECONDS_GAME_MENU_UPDATE_INTERVAL then return end
       f.t = 0
-      f.GameMenu_OnEnter()
-      f.GameMenu_AddRTT()
+      --print("GameTooltip onupdate")
+      f.ModifyTooltipText()
     end)
     
     hooksecurefunc("MainMenuBarPerformanceBarFrame_OnEnter", function() 
-      f.GameMenu_OnEnter()
-      f.GameMenu_AddRTT()
+      --print("MainMenuBarPerformanceBarFrame_OnEnter")
+      f.ModifyTooltipText()
     end)
   end
   
@@ -3336,14 +3451,16 @@ do
     local GetCVar, SetCVar = GetCVar, SetCVar
     
     function ns.func_dynamicParticleDensity(s, e)
-      s.t = s.t and s.t + e or 0; if s.t < UPDATE_INTERVAL then return end; s.t = 0
+      s.t = s.t and s.t + e or 0
+      if s.t < UPDATE_INTERVAL then return end
+      s.t = 0
       
       local particleDensity = tonumber(GetCVar("particleDensity"))
       
       if IsWindowFocused and not IsWindowFocused() then
         if particleDensity ~= PARTICLE_VALUE_MIN then
           --print("Понижаем particleDensity до PARTICLE_VALUE_MIN ("..PARTICLE_VALUE_MIN.."), particleDensity:", particleDensity)
-          SetCVar("particleDensity", PARTICLE_VALUE_MIN)
+          --SetCVar("particleDensity", PARTICLE_VALUE_MIN)
         end
         return 
       end
