@@ -25,7 +25,7 @@ Displays the quick info at bottom left corner:
 19) Online players count from "/who" command
 20) Map coordinates (X/Y)
 21) Time since the current battlefield has opened
-
+22) Addon memory usage
 --------------------------------
 
 <img width="409" height="130" alt="image" src="https://github.com/user-attachments/assets/d6e879b5-5e11-480d-9349-12993e936b33" />
@@ -61,3 +61,4 @@ WoW 3.3.5 аддон. На данный момент без графически
 19) количество игроков онлайн по данным команды /who (/кто)
 20) координаты на карте (X/Y)
 21) время с момента открытия текущего поля боя 
+22) потребление памяти аддонами
