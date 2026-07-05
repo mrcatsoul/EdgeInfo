@@ -2746,7 +2746,7 @@ do
       end
     end
     
-    textFrame.servInfoTime, textFrame.t, textFrame.SendWhoTime = 0, 0, 0
+    textFrame.servInfoTime, textFrame.t, textFrame.SendWhoTime, textFrame.addonMemTime = 0, 0, 0, 0
     local finalLines, row = {}, {}
     
     function textFrame.update(force, self, elapsed)
@@ -2757,6 +2757,7 @@ do
       self.t = self.t + e
       self.servInfoTime = self.servInfoTime + e
       self.SendWhoTime = self.SendWhoTime + e
+      self.addonMemTime = self.addonMemTime + e
       
       local cfg = cfg or {}
 
@@ -2850,9 +2851,13 @@ do
         end
       end
       
-      local addonMem
+      local addonMem 
       if cfg.showAddonMem then
-        addonMem = ns.GetAddonMem and select(2, ns.GetAddonMem())
+        if self.addonMemTime > 1 then
+          self.addonMemTime = 0
+          ns.GetAddonMem()
+        end
+        addonMem = ns.totalMemStr or "?"
       end
 
       -- === СБОРКА СТРОК ===
@@ -2950,7 +2955,7 @@ do
         row[rIdx] = format("%s:%s|ccc%s%d%s|r", MOVE_SPEED, INDENT_SMALL, speedColor, speed, PERCENT_SIGN); rIdx = rIdx + 1
       end
       
-      if cfg.showAddonMem and addonMem then
+      if cfg.showAddonMem then
         row[rIdx] = format("%s:%s|cccf1f1a1%s|r", MEMORY, INDENT_SMALL, addonMem); rIdx = rIdx + 1 
       end
 
@@ -3074,6 +3079,7 @@ do
     local UpdateAddOnMemoryUsage = UpdateAddOnMemoryUsage
     local GetAddOnMemoryUsage = GetAddOnMemoryUsage
     local GetAddOnInfo = GetAddOnInfo
+    local GetNumAddOns = GetNumAddOns
     local GetFramerate = GetFramerate
     local SendAddonMessage = SendAddonMessage
     local UnitName = UnitName
@@ -3105,6 +3111,8 @@ do
     local DND_ON = L=="ruRU" and "Включено ДНД" or "DND on"
     local NAME_UNKNOWN = L=="ruRU" and "Имя неизвестно" or "Name unknown"
     
+    local addonNamesCache, numAddons = {}, 0
+    
     local f = CreateFrame("frame")
     f:SetScript("OnEvent", function(self, event, ...) return self[event](self, ...) end)
     f:RegisterEvent("CHAT_MSG_ADDON")
@@ -3129,6 +3137,20 @@ do
 
     function f:PLAYER_ENTERING_WORLD()
       ns.responceTime, responceReceivedTime, lastRequestSendTime = nil, 0, nil
+      
+      wipe(addonNamesCache)
+      numAddons = GetNumAddOns()
+
+      for i = 1, numAddons do
+        local name = GetAddOnInfo(i)
+        if name then
+          name = name:gsub("_Atom", "HugeDick")
+          if name == ADDON_NAME then 
+            name = "|cff44ffff" .. name .. "|r" 
+          end
+          addonNamesCache[i] = name
+        end
+      end
     end
 
     function f:CHAT_MSG_ADDON(...)
@@ -3220,7 +3242,7 @@ do
       f.topAddOns[i] = { value = 0, name = "" }
     end
     
-    function f.GetAddonMem()
+    function f.GetAddonMem(fullList)
       local num_addons_to_display = cfg.num_addons_to_display or NUM_ADDONS_TO_DISPLAY
      
       -- AddOn mem usage
@@ -3236,36 +3258,37 @@ do
         local mem = GetAddOnMemoryUsage(i)
         totalMem = totalMem + mem
         
-        for j = 1, num_addons_to_display, 1 do
-          if mem > f.topAddOns[j].value then
-            for k = num_addons_to_display, 1, -1 do
-              if k == j then
-                local addonName = GetAddOnInfo(i):gsub("_Atom","HugeDick")
-                if addonName == ADDON_NAME then addonName = "|cff44ffff"..addonName.."|r" end
-                f.topAddOns[k].value = mem
-                f.topAddOns[k].name = addonName
-                break
-              elseif k ~= 1 then
-                f.topAddOns[k].value = f.topAddOns[k-1].value
-                f.topAddOns[k].name = f.topAddOns[k-1].name
+        if fullList then
+          for j = 1, num_addons_to_display, 1 do
+            if mem > f.topAddOns[j].value then
+              for k = num_addons_to_display, 1, -1 do
+                if k == j then
+                  -- local addonName = GetAddOnInfo(i)
+                  -- if addonName:find("_Atom") then
+                    -- addonName = addonName:gsub("_Atom","HugeDick")
+                  -- end
+                  --if addonName == ADDON_NAME then addonName = format("|cff44ffff%s|r", addonName) end
+                  local addonName = addonNamesCache[i]
+                  f.topAddOns[k].value = mem
+                  f.topAddOns[k].name = addonName
+                  break
+                elseif k ~= 1 then
+                  f.topAddOns[k].value = f.topAddOns[k-1].value
+                  f.topAddOns[k].name = f.topAddOns[k-1].name
+                end
               end
+              break
             end
-            break
           end
         end
       end
       
       local color = f.RGBGradient(totalMem / 40000)
       local totalMemStr
+
+      totalMemStr = totalMem > 1000 and format("|cff%s%.2f MB|r", color, totalMem / 1000) or format("|cff%s%.0f KB|r", color, totalMem)
       
-      if totalMem > 1000 then
-        totalMemStr = format("%.2f MB", totalMem / 1000)
-      else
-        totalMemStr = format("%.0f KB", totalMem) 
-      end
-      
-      totalMemStr = format("|cff%s%s|r", color, totalMemStr) -- "|cff".. color .. totalMemStr .. "|r"
-      
+      ns.totalMem, ns.totalMemStr = totalMem, totalMemStr
       return totalMem, totalMemStr
     end
     ns.GetAddonMem = f.GetAddonMem
@@ -3336,7 +3359,7 @@ do
         end
         ]]
         
-        local totalMem = f.GetAddonMem() -- 5.7.26
+        local totalMem = f.GetAddonMem(1) -- 5.7.26
        
         if totalMem > 0 then
           local color = f.RGBGradient(totalMem / 40000)
