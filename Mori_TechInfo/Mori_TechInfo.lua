@@ -98,7 +98,7 @@ do
   local UnitCastingInfo = UnitCastingInfo
   local UnitChannelInfo = UnitChannelInfo
   local GetNumWhoResults = GetNumWhoResults
-  local SendWho = SendWho
+  --local SendWho = SendWho
   local GetPlayerMapPosition = GetPlayerMapPosition
   local GetBattlefieldInstanceRunTime = GetBattlefieldInstanceRunTime
   local IsShiftKeyDown = IsShiftKeyDown
@@ -115,10 +115,11 @@ do
   local min = _G.min
   local modf = _G.math.modf
   local abs = _G.math.abs
+  local strfind = strfind
   local strmatch = strmatch
   local tinsert = tinsert
   local tconcat = table.concat
-  local tContains = tContains
+  --local tContains = tContains
   local strep = string.rep
   local wipe = wipe
   local GetFramerate = GetFramerate
@@ -127,7 +128,7 @@ do
   local date = _G.date
   local time = _G.time
   local GetTime = _G.GetTime
-  local GetLocale = GetLocale
+  --local GetLocale = GetLocale
   local CR_HASTE_SPELL = CR_HASTE_SPELL
   local CR_HIT_RANGED = CR_HIT_RANGED
   local CR_HIT_MELEE = CR_HIT_MELEE
@@ -2256,7 +2257,7 @@ do
       end
 
       InRaidGroup = GetRealNumRaidMembers() > 0 or UnitInRaid("player")
-      InCrossZone = InBg or InArena or (UnitIsPVPSanctuary("player") and (curZone=="Кратер Азшары" or curZone=="Ульдуар" or curZone=="Azshara Crater" or curZone=="Ulduar"))
+      InCrossZone = InBg or InArena or (UnitIsPVPSanctuary("player") and (curZone=="Кратер Азшары" or curZone=="Ульдуар" or curZone=="Azshara Crater" or curZone=="Ulduar" or InRaidDungeon))
       --_G.InCrossZone = InCrossZone
       --print("InCrossZone",_G.InCrossZone)
       
@@ -2423,7 +2424,8 @@ do
       if cfg.showArmor then
         local _, _, armor, posBuff, negBuff = UnitArmor("player")
         local color = (posBuff ~= 0 and "00f100") or (negBuff ~= 0 and "f10000") or "f1f1a1"
-        local armorVal = format("%.1fk", armor / 1000):gsub("%.0k", "k")
+        --local armorVal = format("%.1fk", armor / 1000):gsub("%.0k", "k")
+        local armorVal = gsub(format("%.1fk", armor / 1000), "%.0k", "k")
         AddStat(ARMOR, armorVal, color)
       end
 
@@ -2619,7 +2621,7 @@ do
         ns.UpdateStats()
       elseif event == "CHAT_MSG_SYSTEM" then
         local msg = ...
-        if msg:find(SYSMSG_SPAM_ERROR, 1, true) then
+        if --[[msg:find(SYSMSG_SPAM_ERROR, 1, true)]] strfind(msg, SYSMSG_SPAM_ERROR, 1, true) then
           textFrame.needWaitServerInfo = nil
           --print(SYSMSG_SPAM_ERROR)
           if needShowServerInfo and needShowServerInfo == 0 then
@@ -2630,16 +2632,16 @@ do
               SendChatMessage(".server info", "guild")
             end)
           end
-        elseif msg:find("Server delay: ", 1, true) then
+        elseif --[[msg:find("Server delay: ", 1, true)]] strfind(msg, "Server delay: ", 1, true) then
           ns.serverDelay = tonumber(strmatch(msg, "Server delay: (%d+) ms")) or -1
           --print('serverDelay:',serverDelay)
-        elseif msg:find("Server uptime: ", 1, true) then
+        elseif --[[msg:find("Server uptime: ", 1, true)]] strfind(msg, "Server uptime: ", 1, true) then
           textFrame.needWaitServerInfo = nil
           local s = msg:lower()
 
-          local h = s:match("(%d+)%s*hours?") or s:match("(%d+)%s*hour")
-          local m = s:match("(%d+)%s*minutes?") or s:match("(%d+)%s*minute")
-          local sec = s:match("(%d+)%s*seconds?") or s:match("(%d+)%s*second")
+          local h = strmatch(s, "(%d+)%s*hours?") or strmatch(s, "(%d+)%s*hour")
+          local m = strmatch(s, "(%d+)%s*minutes?") or strmatch(s, "(%d+)%s*minute")
+          local sec = strmatch(s, "(%d+)%s*seconds?") or strmatch(s, "(%d+)%s*second")
 
           h = tonumber(h) or 0
           m = tonumber(m) or 0
@@ -2652,15 +2654,18 @@ do
           else
             ns.serverUptime = format("0:%02ds", sec)
           end
-        elseif msg:find("Active connections: ", 1, true) then
+        elseif --[[msg:find("Active connections: ", 1, true)]] strfind(msg, "Active connections: ", 1, true)  then
           ns.activeConnections = msg:match("Active connections:%s+(%d+)")
           --print(activeConnections) 
         end
       elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
-        local subevent, srcGuid = select(2, ...)
-        if subevent:find("SPELL_") and srcGuid == playerGUID then
+        --local subevent, srcGuid = select(2, ...)
+        local _, subevent, srcGuid = ...
+        if --[[subevent:find("SPELL_")]] strfind(subevent, "SPELL_") and srcGuid == playerGUID then
           --print(subevent, srcGuid)
-          local spellid, spellname = select(9, ...)
+          --local spellid, spellname = select(9, ...)
+          local _, _, _, _, _, _, _, _, spellid, spellname = ...
+          --print(ADDON_NAME, spellname)
           if spellname and not ns.spellIcons[spellname] then
             ns.spellIcons[spellname] = select(3, GetSpellInfo(spellid))
             textFrame.update(true, textFrame)
@@ -2844,7 +2849,7 @@ do
           local spellIconStr = format(" |T%s:%d|t", icon, (cfg.fontSize or DEFAULT_FONT_SIZE) + 1)
           
           local lastSpellShort = ns.lastUsedSpellName
-          if #ns.lastUsedSpellName:gsub("[\128-\191]", "") > 10 then
+          if --[[#ns.lastUsedSpellName:gsub("[\128-\191]", "") > 10]] #gsub(ns.lastUsedSpellName, "[\128-\191]", "") > 10 then
             lastSpellShort = utf8sub(ns.lastUsedSpellName, 10, true)
           end
           spellDelayStr = format("%s:%s|ccc%s%-4s%s|r", SPELL, INDENT_SMALL, spellDelayColor, spellDelay .. spellIconStr, cfg.showSpellName and lastSpellShort or "")
@@ -3002,7 +3007,7 @@ do
     
     local function msgContainsStringFromList(msg, list)
       for _, v in ipairs(list) do
-        if msg:find(v, 1, true) then
+        if --[[msg:find(v, 1, true)]] strfind(msg, v, 1, true) then
           return true
         end
       end
@@ -3032,7 +3037,7 @@ do
             needShowServerInfo = nil
           end
         end
-      elseif msg:find(SYSMSG_SPAM_ERROR, 1, true) and cfg.hide_SYSMSG_SPAM_ERROR then
+      elseif --[[msg:find(SYSMSG_SPAM_ERROR, 1, true)]] strfind(msg, SYSMSG_SPAM_ERROR, 1, true) and cfg.hide_SYSMSG_SPAM_ERROR then
         --print("SYSMSG_SPAM_ERROR")
         return true
       end
@@ -3074,6 +3079,7 @@ do
     local SECONDS_GAME_MENU_UPDATE_INTERVAL = 0.2
     local NUM_ADDONS_TO_DISPLAY = 50
 
+    local _G = _G
     local GameTooltip = GameTooltip
     local MainMenuMicroButton = MainMenuMicroButton
     local UpdateAddOnMemoryUsage = UpdateAddOnMemoryUsage
@@ -3094,13 +3100,15 @@ do
     local GetNetStats = GetNetStats
     local UNKNOWN = UNKNOWN
     local playerName = UnitName("player")
-    local GetTime = _G.GetTime
+    local GetTime = GetTime
     local responceReceivedTime, lastRequestSendTime = 0
     local modf = math.modf
     local format = string.format
-    local tostring = _G.tostring
-    local select = _G.select
-    local unpack = _G.unpack
+    local tostring = tostring
+    local select = select
+    local unpack = unpack
+    local strfind = strfind
+    local strmatch = strmatch
     local UnitIsDND = UnitIsDND
     local IsInGuild = IsInGuild
     local GetNumRaidMembers = GetNumRaidMembers
@@ -3121,7 +3129,7 @@ do
     f:RegisterEvent("PLAYER_LEVEL_UP")
 
     function f:UI_ERROR_MESSAGE(arg1)
-      if not ns.cannotSend and (arg1:find("Вы не можете использовать личные сообщения", 1, true) or arg1:find("You cannot whisper", 1, true)) then
+      if not ns.cannotSend and (strfind(arg1, "Вы не можете использовать личные сообщения", 1, true) or strfind(arg1, "You cannot whisper", 1, true)) then
         ns.cannotSend = true
         ns.responceTime, responceReceivedTime, lastRequestSendTime = nil, 0, nil
         DelayedCall(60, function()
@@ -3410,15 +3418,17 @@ do
     end
 
     function f.GameMenu_AddRTT()
+      local responceTime = ns.responceTime
+      local RGBGradient = f.RGBGradient
       --local mouseFocus = GetMouseFocus()
       --if mouseFocus and mouseFocus.GetName and mouseFocus:GetName() == "MainMenuMicroButton" then
         for i = 1, GameTooltip:NumLines() do
           local text = _G[GameTooltip:GetName().."TextLeft"..i]:GetText()
-          if text and text:find(MAINMENUBAR_LATENCY_LABEL:match("^(.-):")) then
+          if text and strfind(text, --[[MAINMENUBAR_LATENCY_LABEL:match("^(.-):")]] strmatch(MAINMENUBAR_LATENCY_LABEL, "^(.-):")) then
             local _, _, latency = GetNetStats()
             local _string = format(MAINMENUBAR_LATENCY_LABEL, latency)
             local textRegion = _G[GameTooltip:GetName().."TextLeft"..i]
-            local color = tonumber(ns.responceTime) and f.RGBGradient(ns.responceTime/150) or "ffffff"
+            local color = tonumber(ns.responceTime) and RGBGradient(ns.responceTime/150) or "ffffff"
             --textRegion:SetText(_string..", RTT: |cff"..color..ns.responceTime.."|r")
             textRegion:SetText(format("%s, RTT: |cff%s%s|r", _string, color, ns.responceTime))
             GameTooltip:Show()
