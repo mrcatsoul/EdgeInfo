@@ -1,9 +1,9 @@
 ## Interface: 30300
 ## Title: _|cff33ddddtech info|r by |cFFC41F3BMori|r
-## Version: 1.0.19 (5.7.2026)
+## Version: 1.0.20 (9.7.2026)
 ## Notes: Codework: |cFFC41F3BMori|r~WoWCircle WotLK x100, GitHub/YouTube/Discord/Telegram: @mrcatsoul. 
 ## Notes-ruRU: Работа над кодом: |cFFC41F3BMori|r~WoWCircle WotLK x100, GitHub/YouTube/Discord/Telegram: @mrcatsoul. 
-## X-Repository: https://github.com/mrcatsoul/EdgeInfo
+## X-Repository: https://github.com/mrcatsoul/TechInfo
 ## SavedVariables: mrcatsoul_Mori_EdgeInfo_Data
 ## DefaultState: disabled
 
