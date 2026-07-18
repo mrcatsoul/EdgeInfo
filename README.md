@@ -1,7 +1,5 @@
 WoW 3.3.5 addon. https://youtu.be/JjI-FcJ5T28
 
-Currently has no options or settings UI, but some values can be tweaked through constants in the Lua file(Mori_EdgeInfo.lua).
-
 Displays the quick info at bottom left corner:
 
 1) Time left until resurrection by-corpse
@@ -36,7 +34,7 @@ Displays the quick info at bottom left corner:
 
 --------------------------------
 
-WoW 3.3.5 аддон. На данный момент без графических опций-настроек, но некоторые значения можно покрутить через константы в основном lua-файле аддона(Mori_EdgeInfo.lua).
+WoW 3.3.5 аддон.
 
 Показывает инфу в левом нижнем углу:
 
